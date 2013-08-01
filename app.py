@@ -6,7 +6,7 @@ from socket import gethostname
 
 from urlparse import urlparse
 
-from bottle import get, post, request, template
+from bottle import get, post, request, template, route, static_file
 from bottle import debug as bottle_debug
 from bottle import run as bottle_run
 
@@ -61,13 +61,14 @@ def guess_domain(input):
     return {'status': True, 'domain': educated_guess}
 
 
+@route('/static/:filename#.*#')
+def send_static(filename):
+    return static_file(filename, root='./static/')
+
+
 @get('/')
 def input_form():
-    return '''<form method="POST" action="/result">
-            <h1>Are they using Google Apps?</h1>
-            <strong>Domain: </strong><input name="domain" type="text" /> (e.g. 'foobar.com' or 'user@foobar.com')<br />
-            <input type="submit" />
-            </form>'''
+    return template('templates/index')
 
 
 @post('/result')
@@ -89,8 +90,6 @@ def build_links():
             result = "No, they aren't :("
 
 
-    return template('''
-    <h1>{{result}}</h1>
-    ''', result=result)
+    return template('templates/result', result=result)
 
 bottle_run(host=listen, port=port, reloader=True)
