@@ -1,4 +1,4 @@
-This is the source code for the site [Are They Using Google Apps](http://aretheyusinggoogleapps.com/).
+This is the source code for the site [Are They Using Google Apps?](http://aretheyusinggoogleapps.lab.vpetersson.com/).
 
 To run it yourself using Docker, simply run:
 
