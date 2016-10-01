@@ -11,17 +11,8 @@ from bottle import debug as bottle_debug
 from bottle import run as bottle_run
 
 import dns.resolver
+import settings
 
-try:
-    port = argv[1]
-except:
-    port = '8080'
-
-if gethostname() == 'hax0rbook3':
-    listen = '127.0.0.1'
-    bottle_debug(True)
-else:
-    listen = '0.0.0.0'
 
 def is_running_google_apps(domain):
     result = False
@@ -51,7 +42,7 @@ def guess_domain(input):
 
     # Append http:// to satisfy urlparse if missing
     if not guess_domain.startswith('http://' or 'https://'):
-        guess_domain = 'http://%s' %  guess_domain
+        guess_domain = 'http://{}'.format(guess_domain)
 
     parse_domain = urlparse(guess_domain)
 
@@ -89,7 +80,6 @@ def build_links():
         else:
             result = "No, they aren't :("
 
-
     return template('templates/result', result=result)
 
-bottle_run(host=listen, port=port, reloader=True)
+bottle_run(host=settings.LISTEN, port=settings.PORT, reloader=True)
