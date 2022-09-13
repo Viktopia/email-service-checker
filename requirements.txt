@@ -1,2 +1,2 @@
-bottle==0.12.9
+bottle==0.12.20
 dnspython==1.15.0
