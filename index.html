@@ -9,18 +9,13 @@
     <meta name="author" content="Your Name">
     <title>Email Service Checker - Find Email Providers</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "Email Service Checker",
-        "url": "https://yourwebsite.com",
-        "potentialAction": {
-            "@type": "SearchAction",
-            "target": "https://yourwebsite.com?domain={domain}",
-            "query-input": "required name=domain"
-        }
-    }
+    <script async src="https://www.googletagmanager.com/gtag/js?id=YOUR_GA4_ID"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'YOUR_GA4_ID');
     </script>
     <script>
         async function checkEmailService() {
@@ -63,6 +58,10 @@
                     for (const [service, domains] of Object.entries(emailServiceProviders)) {
                         if (domains.some(d => mxRecords.includes(d))) {
                             foundService = service;
+                            gtag('event', 'check_email_service', {
+                                'domain': domain,
+                                'service': foundService
+                            });
                             break;
                         }
                     }
