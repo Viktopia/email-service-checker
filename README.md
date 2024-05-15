@@ -9,7 +9,6 @@ The **Email Service Checker** is a simple web tool designed to identify the emai
 - Check the email service provider of a domain or email address
 - Supports popular email services like Google Workspace, Microsoft 365, Zoho Mail, Yahoo Mail, and more
 - Simple and intuitive user interface
-- SEO optimized for better search engine visibility
 - Responsive design using Tailwind CSS
 
 ## Technologies Used
@@ -23,13 +22,15 @@ The **Email Service Checker** is a simple web tool designed to identify the emai
 ## Installation
 
 1. **Clone the repository**:
-    ```bash
-    git clone https://github.com/vpetersson/whats-the-email-provider .git
-    cd whats-the-email-provider 
-    ```
+
+```bash
+$ git clone https://github.com/vpetersson/whats-the-email-provider.git
+$ cd whats-the-email-provider 
+```
 
 2. **Open `index.html` in your browser**:
-    You can simply open the `index.html` file in your browser to use the tool.
+
+You can simply open the `index.html` file in your browser to use the tool.
 
 ## Usage
 
@@ -62,6 +63,3 @@ Developed by [Viktor Petersson](https://blog.viktorpetersson.com).
 - [Tailwind CSS](https://tailwindcss.com/)
 - [Google DNS-over-HTTPS API](https://developers.google.com/speed/public-dns/docs/dns-over-https)
 - [JSON-LD](https://json-ld.org/)
-
-
-
