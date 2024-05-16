@@ -6,22 +6,30 @@
     <meta name="title" content="Email Service Checker - Find Email Providers">
     <meta name="description" content="Use our tool to find out which email service provider a domain or email address is using. Ideal for sales teams targeting companies using Google Workspace, Microsoft 365, and other popular email services.">
     <meta name="keywords" content="email service checker, find email provider, Google Workspace, Microsoft 365, Office 365, Zoho Mail, Yahoo Mail, Apple iCloud Mail, AOL Mail, Yandex Mail, GMX Mail, ProtonMail, FastMail">
-    <meta name="author" content="Your Name">
+    <meta name="author" content="Viktor Petersson">
     <title>Email Service Checker - Find Email Providers</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <script type="application/ld+json">
-    {
-        "@context": "https://schema.org",
-        "@type": "WebSite",
-        "name": "Email Service Checker",
-        "url": "https://yourwebsite.com",
-        "potentialAction": {
-            "@type": "SearchAction",
-            "target": "https://yourwebsite.com?domain={domain}",
-            "query-input": "required name=domain"
-        }
-    }
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-1TBL4YJLRE"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      gtag('config', 'G-1TBL4YJLRE');
     </script>
+    <script type="application/ld+json">
+        {
+            "@context": "https://schema.org",
+            "@type": "WebSite",
+            "name": "Email Service Checker",
+            "url": "https://emailservicechecker.com",
+            "potentialAction": {
+                "@type": "SearchAction",
+                "target": "https://emailservicechecker.com?domain={domain}",
+                "query-input": "required name=domain"
+            }
+        }
+        </script>
     <script>
         async function checkEmailService() {
             const domainInput = document.getElementById('domain').value;
@@ -44,7 +52,7 @@
                 <div class="p-4 mb-4 text-sm text-blue-700 bg-blue-100 rounded-lg" role="alert">
                     <span class="font-medium">Checking...</span>
                 </div>`;
-            
+
             if (!domainInput) {
                 resultElement.innerHTML = `
                     <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
@@ -63,13 +71,25 @@
                     for (const [service, domains] of Object.entries(emailServiceProviders)) {
                         if (domains.some(d => mxRecords.includes(d))) {
                             foundService = service;
+                            gtag('event', 'check_email_service', {
+                                'domain': domain,
+                                'service': foundService
+                            });
                             break;
                         }
                     }
-                    resultElement.innerHTML = `
-                        <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
-                            The email service used by <span class="font-semibold">${domain}</span> is:<br><span class="font-bold text-green-700">${foundService}</span>
-                        </div>`;
+                    if (foundService === 'Unknown email service') {
+                        resultElement.innerHTML = `
+                            <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
+                                <span class="font-medium">No provider found for <span class="font-semibold">${domain}</span>.</span>
+                                <a href="https://github.com/viktopia/email-service-checker/issues/new" target="_blank" class="text-blue-600 hover:underline">Add provider.</a>
+                            </div>`;
+                    } else {
+                        resultElement.innerHTML = `
+                            <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
+                                The email service used by <span class="font-semibold">${domain}</span> is:<br><span class="font-bold text-green-700">${foundService}</span>
+                            </div>`;
+                    }
                 } else {
                     resultElement.innerHTML = `
                         <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
@@ -86,8 +106,8 @@
         }
     </script>
 </head>
-<body class="bg-gray-100 text-gray-800">
-    <div class="min-h-screen flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
+<body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
+    <div class="flex-grow flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div class="max-w-md w-full space-y-8 mx-auto">
             <div class="text-center">
                 <img src="logo.webp" alt="Email Service Checker Logo" class="mx-auto border border-gray-300 rounded-lg" style="height: 150px; width: auto;">
@@ -108,10 +128,20 @@
                 </div>
             </form>
             <div id="result" class="mt-4 text-center text-xl"></div>
-            <footer class="mt-8 text-center text-gray-600">
-                <p>&copy; 2024 <a href="https://blog.viktorpetersson.com" class="text-indigo-600 hover:text-indigo-800">blog.viktorpetersson.com</a></p>
-            </footer>
         </div>
     </div>
+    <footer class="bg-white py-4">
+        <div class="max-w-7xl mx-auto px-4 overflow-hidden sm:px-6 lg:px-8">
+            <nav class="flex justify-center space-x-4">
+                <a href="https://github.com/viktopia/email-service-checker" target="_blank" class="text-gray-500 hover:text-gray-900 flex items-center space-x-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12c0 4.42 2.87 8.18 6.84 9.5.5.09.68-.22.68-.48v-1.7c-2.78.61-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.61.07-.61 1 .07 1.53 1.03 1.53 1.03.9 1.53 2.35 1.09 2.93.83.09-.65.35-1.09.63-1.34-2.22-.25-4.56-1.11-4.56-4.95 0-1.09.39-1.98 1.03-2.68-.1-.26-.45-1.29.1-2.68 0 0 .84-.27 2.75 1.02A9.55 9.55 0 0112 6.9c.85.004 1.7.114 2.5.334 1.91-1.3 2.75-1.02 2.75-1.02.55 1.39.2 2.42.1 2.68.64.7 1.03 1.59 1.03 2.68 0 3.85-2.34 4.7-4.57 4.95.36.31.68.92.68 1.85v2.74c0 .26.18.58.69.48A10 10 0 0022 12c0-5.52-4.48-10-10-10z"/>
+                    </svg>
+                    <span>Edit me on GitHub</span>
+                </a>
+                <span class="text-gray-500">&copy; 2024 Viktopia Studio</span>
+            </nav>
+        </div>
+    </footer>
 </body>
 </html>
