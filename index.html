@@ -29,10 +29,9 @@
                 "query-input": "required name=domain"
             }
         }
-        </script>
+    </script>
     <script>
-        async function checkEmailService() {
-            const domainInput = document.getElementById('domain').value;
+        async function checkEmailService(domain) {
             const resultElement = document.getElementById('result');
             const emailServiceProviders = {
                 'Google Workspace': ['google.com', 'googlemail.com'],
@@ -53,7 +52,7 @@
                     <span class="font-medium">Checking...</span>
                 </div>`;
 
-            if (!domainInput) {
+            if (!domain) {
                 resultElement.innerHTML = `
                     <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
                         <span class="font-medium">Please enter a valid domain or email address.</span>
@@ -61,9 +60,10 @@
                 return;
             }
 
-            const domain = domainInput.includes('@') ? domainInput.split('@')[1] : domainInput;
+            const cleanDomain = domain.includes('@') ? domain.split('@')[1] : domain;
+
             try {
-                const response = await fetch(`https://dns.google/resolve?name=${domain}&type=MX`);
+                const response = await fetch(`https://dns.google/resolve?name=${cleanDomain}&type=MX`);
                 const data = await response.json();
                 if (data.Answer) {
                     const mxRecords = data.Answer.map(record => record.data).join(', ');
@@ -72,7 +72,7 @@
                         if (domains.some(d => mxRecords.includes(d))) {
                             foundService = service;
                             gtag('event', 'check_email_service', {
-                                'domain': domain,
+                                'domain': cleanDomain,
                                 'service': foundService
                             });
                             break;
@@ -81,13 +81,13 @@
                     if (foundService === 'Unknown email service') {
                         resultElement.innerHTML = `
                             <div class="p-4 mb-4 text-sm text-red-700 bg-red-100 rounded-lg" role="alert">
-                                <span class="font-medium">No provider found for <span class="font-semibold">${domain}</span>.</span>
+                                <span class="font-medium">No provider found for <span class="font-semibold">${cleanDomain}</span>.</span>
                                 <a href="https://github.com/viktopia/email-service-checker/issues/new" target="_blank" class="text-blue-600 hover:underline">Add provider.</a>
                             </div>`;
                     } else {
                         resultElement.innerHTML = `
                             <div class="p-4 mb-4 text-sm text-green-700 bg-green-100 rounded-lg" role="alert">
-                                The email service used by <span class="font-semibold">${domain}</span> is:<br><span class="font-bold text-green-700">${foundService}</span>
+                                The email service used by <span class="font-semibold">${cleanDomain}</span> is:<br><span class="font-bold text-green-700">${foundService}</span>
                             </div>`;
                     }
                 } else {
@@ -104,6 +104,19 @@
                 console.error('Error fetching MX records:', error);
             }
         }
+
+        function handleGetParameters() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const domain = urlParams.get('domain');
+
+            if (domain) {
+                checkEmailService(domain).then(result => {
+                    document.getElementById('domain').value = domain;
+                });
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', handleGetParameters);
     </script>
 </head>
 <body class="bg-gray-100 text-gray-800 flex flex-col min-h-screen">
@@ -114,7 +127,7 @@
                 <h1 class="text-3xl font-extrabold text-gray-900 mt-4">Check Email Service</h1>
                 <p class="mt-2 text-gray-600">Enter a domain or email address to find out which email service provider it uses. This tool is perfect for sales teams targeting companies using popular email services like Google Workspace, Microsoft 365, and more.</p>
             </div>
-            <form onsubmit="event.preventDefault(); checkEmailService();" class="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-md">
+            <form onsubmit="event.preventDefault(); checkEmailService(document.getElementById('domain').value);" class="mt-8 space-y-6 bg-white p-8 rounded-xl shadow-md">
                 <div class="rounded-md shadow-sm -space-y-px">
                     <div>
                         <label for="domain" class="sr-only">Domain or Email</label>
