@@ -1,5 +1,12 @@
 import type { Provider, ProviderCategory } from './types.ts';
 
+export function providerSlug(provider: Pick<Provider, 'name'>): string {
+    return provider.name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+}
+
 // Each provider lists MX hostname suffixes that uniquely identify it.
 // Matching is done by exact-host or dot-suffix match in identify.ts —
 // so "mail.com" will not match "googlemail.com". Longest matcher wins,

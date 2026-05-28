@@ -25,18 +25,22 @@ function reportNumber(domain: string): string {
     return (h >>> 0).toString(36).toUpperCase().padStart(7, '0').slice(0, 7);
 }
 
-const REPORT_CARD = 'paper-card report-card grid gap-[1.2rem] p-[clamp(1.25rem,3.5vw,2rem)]';
+const CARD = 'card report-anim p-6 sm:p-8 flex flex-col';
+
+function categoryBadge(category: Finding['provider']['category']): HTMLElement {
+    return el('span', { class: `cat-badge cat-${category}` }, CATEGORY_LABEL[category]);
+}
 
 function mxTable(mxRecords: readonly MxRecord[]): HTMLElement {
-    const wrap = el('div', { class: 'grid gap-[0.6rem] pt-[0.9rem] border-t border-dashed border-rule' });
-    wrap.append(el('div', { class: 'stencil' }, 'Evidence — MX records'));
-    const table = el('table', { class: 'w-full border-collapse font-mono text-[0.84rem]' });
+    const wrap = el('div', { class: 'report-row flex flex-col gap-3' });
+    wrap.append(el('p', { class: 'eyebrow' }, `Evidence — ${mxRecords.length} MX record${mxRecords.length === 1 ? '' : 's'}`));
+    const table = el('table', { class: 'mx-table' });
     const tbody = el('tbody');
     for (const mx of mxRecords) {
         tbody.append(
             el('tr', {},
-                el('td', { class: 'py-1 pr-4 w-[3.2rem] text-end align-top text-ink-faded border-b border-dotted border-rule-soft' }, String(mx.priority)),
-                el('td', { class: 'py-1 pl-2 align-top text-ink break-all border-b border-dotted border-rule-soft' }, mx.host),
+                el('td', { class: 'mx-prio' }, String(mx.priority)),
+                el('td', { class: 'mx-host' }, mx.host),
             ),
         );
     }
@@ -53,7 +57,7 @@ function shareButton(domain: string): HTMLButtonElement {
         try {
             await navigator.clipboard.writeText(url.toString());
             btn.textContent = 'Link copied';
-            setTimeout(() => { btn.textContent = 'Copy share link'; }, 1600);
+            setTimeout(() => { btn.textContent = 'Copy share link'; }, 1500);
         } catch {
             btn.textContent = 'Copy failed';
         }
@@ -64,36 +68,29 @@ function shareButton(domain: string): HTMLButtonElement {
 function findingBlock(finding: Finding): HTMLElement {
     const { provider } = finding;
     const cat = provider.category;
-    const block = el('article', { class: 'finding' });
+    const block = el('div', { class: 'finding' });
 
-    block.append(el('div', { class: 'stencil' }, CATEGORY_LABEL[cat]));
-
-    const name = provider.url
-        ? el('a', { class: 'display-name', href: provider.url, target: '_blank', rel: 'noopener' }, provider.name)
-        : el('h3', { class: 'display-name' }, provider.name);
-    block.append(name);
-
-    block.append(
-        el('div', { class: `postmark postmark--${cat}` },
-            el('span', { class: 'postmark-arc' }, CATEGORY_LABEL[cat].toUpperCase()),
-        ),
-    );
+    const title = provider.url
+        ? el('a', { class: 'display-name finding-title', href: provider.url, target: '_blank', rel: 'noopener' }, provider.name)
+        : el('h3', { class: 'display-name finding-title' }, provider.name);
+    block.append(title);
+    block.append(el('div', { class: 'finding-badge' }, categoryBadge(cat)));
 
     const note = CATEGORY_NOTE[cat];
-    if (note) block.append(el('p', { class: 'text-ink-soft text-[0.92rem] max-w-[56ch]' }, note));
+    if (note) block.append(el('p', { class: 'finding-note' }, note));
 
     return block;
 }
 
 function consumerCallout(hit: ConsumerHit): HTMLElement {
-    const label = hit.kind === 'disposable' ? 'Disposable address service' : 'Free consumer mailbox';
+    const label = hit.kind === 'disposable' ? 'Disposable mailbox service' : 'Free consumer mailbox';
     const detail = hit.kind === 'disposable'
-        ? 'This domain is published as a temporary / throwaway mailbox provider — addresses on it are usually short-lived.'
-        : 'This domain is a free consumer email service. Mail sent here lands in a personal account, not a business mailbox.';
-    return el('article', { class: 'finding' },
-        el('div', { class: 'stencil' }, 'Catalogued in open dataset'),
-        el('h3', { class: 'display-name' }, label),
-        el('p', { class: 'text-ink-soft text-[0.92rem] max-w-[56ch]' }, detail),
+        ? 'This domain is published in the open disposable-mailbox catalogue — addresses on it are usually short-lived throwaways.'
+        : 'This domain is in the open free-mailbox catalogue. Mail sent here goes to a personal account, not a business mailbox.';
+    return el('div', { class: 'finding' },
+        el('h3', { class: 'display-name finding-title' }, label),
+        el('div', { class: 'finding-badge' }, el('span', { class: 'cat-badge cat-consumer' }, 'Open dataset')),
+        el('p', { class: 'finding-note' }, detail),
     );
 }
 
@@ -109,30 +106,26 @@ export function renderReport(target: HTMLElement, input: RenderInput): void {
 }
 
 function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput): HTMLElement {
-    const report = el('section', { class: REPORT_CARD, 'aria-live': 'polite' });
+    const report = el('section', { class: CARD, 'aria-live': 'polite' });
 
     report.append(
-        el('header', { class: 'flex justify-between gap-4 pb-[0.7rem] border-b border-rule stencil' },
-            el('span', {}, 'INSPECTION REPORT'),
-            el('span', { class: 'text-ink-soft' }, `N° ${reportNumber(domain)}`),
+        el('div', { class: 'report-row flex items-center justify-between gap-3' },
+            el('div', { class: 'flex flex-col min-w-0' },
+                el('span', { class: 'eyebrow mb-1' }, 'Subject'),
+                el('span', { class: 'font-mono text-[0.95rem] text-text break-all' }, domain),
+            ),
+            el('span', { class: 'eyebrow text-overlay-1' }, `N° ${reportNumber(domain)}`),
         ),
     );
 
-    report.append(
-        el('div', { class: 'grid gap-1' },
-            el('span', { class: 'stencil' }, 'Subject'),
-            el('span', { class: 'font-mono text-[clamp(1rem,2.6vw,1.15rem)] text-ink break-all' }, domain),
-        ),
-    );
-
-    const findingsWrap = el('div', { class: 'findings-list' });
+    const findingsWrap = el('div', { class: 'report-row flex flex-col gap-7' });
 
     if (findings.length === 0 && mxRecords.length > 0) {
         findingsWrap.append(
-            el('article', { class: 'finding' },
-                el('div', { class: 'stencil' }, 'Inconclusive'),
-                el('h3', { class: 'display-name' }, 'Unrecognised provider'),
-                el('p', { class: 'text-ink-soft text-[0.92rem] max-w-[56ch]' },
+            el('div', { class: 'finding' },
+                el('h3', { class: 'display-name finding-title' }, 'Unrecognised provider'),
+                el('div', { class: 'finding-badge' }, el('span', { class: 'cat-badge cat-parking' }, 'Inconclusive')),
+                el('p', { class: 'finding-note' },
                     'MX records were found, but none match a known provider in our catalogue. ',
                     el('a', {
                         href: `https://github.com/viktopia/email-service-checker/issues/new?title=${encodeURIComponent(`Add provider for ${domain}`)}`,
@@ -144,11 +137,11 @@ function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput):
         );
     } else if (mxRecords.length === 0) {
         findingsWrap.append(
-            el('article', { class: 'finding' },
-                el('div', { class: 'stencil' }, 'No mail exchange'),
-                el('h3', { class: 'display-name' }, 'No MX records'),
-                el('p', { class: 'text-ink-soft text-[0.92rem] max-w-[56ch]' },
-                    `${domain} publishes no MX records, so it almost certainly does not receive email at this domain.`),
+            el('div', { class: 'finding' },
+                el('h3', { class: 'display-name finding-title' }, 'No MX records'),
+                el('div', { class: 'finding-badge' }, el('span', { class: 'cat-badge cat-parking' }, 'No mail exchange')),
+                el('p', { class: 'finding-note' },
+                    `${domain} publishes no MX records, so it almost certainly does not receive email.`),
             ),
         );
     } else {
@@ -161,7 +154,7 @@ function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput):
     if (mxRecords.length > 0) report.append(mxTable(mxRecords));
 
     report.append(
-        el('footer', { class: 'pt-[0.7rem] border-t border-rule flex flex-wrap justify-end gap-2' },
+        el('div', { class: 'report-row flex justify-end' },
             shareButton(domain),
         ),
     );
@@ -170,8 +163,8 @@ function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput):
 
 export function renderError(target: HTMLElement, message: string): void {
     target.replaceChildren(
-        el('section', { class: `${REPORT_CARD} border-stamp-red`, 'aria-live': 'polite' },
-            el('div', { class: 'stencil text-stamp-red' }, 'Lookup failed'),
+        el('section', { class: `${CARD} border-red`, 'aria-live': 'polite' },
+            el('p', { class: 'eyebrow text-red mb-2' }, 'Lookup failed'),
             el('h3', { class: 'display-name' }, message),
         ),
     );
@@ -179,11 +172,11 @@ export function renderError(target: HTMLElement, message: string): void {
 
 export function renderLoading(target: HTMLElement, domain: string): void {
     target.replaceChildren(
-        el('section', { class: REPORT_CARD, 'aria-live': 'polite' },
-            el('div', { class: 'stencil' }, 'Querying DNS'),
-            el('h3', { class: 'display-name text-ink-faded' },
+        el('section', { class: CARD, 'aria-live': 'polite' },
+            el('p', { class: 'eyebrow mb-2' }, 'Querying DNS'),
+            el('h3', { class: 'display-name text-overlay-1' },
                 'Resolving ',
-                el('span', { class: 'font-mono' }, domain),
+                el('span', { class: 'font-mono text-text' }, domain),
                 el('span', { class: 'cursor' }, '_'),
             ),
         ),
