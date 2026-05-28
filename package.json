@@ -1,0 +1,29 @@
+{
+  "name": "email-service-checker",
+  "version": "2.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Identify which email provider, security gateway, or forwarder handles a domain's mail by inspecting public MX records.",
+  "scripts": {
+    "datasets": "bun run scripts/build-data.ts",
+    "build": "bun run scripts/build.ts",
+    "dev": "bun run scripts/build.ts --serve",
+    "typecheck": "tsc --noEmit",
+    "lint": "biome lint src scripts",
+    "format": "biome format --write src scripts",
+    "check": "biome check src scripts",
+    "clean": "rm -rf dist src/data/consumer-domains.ts"
+  },
+  "dependencies": {
+    "@fontsource-variable/figtree": "^5.1.0",
+    "@fontsource-variable/fraunces": "^5.1.0",
+    "@fontsource-variable/jetbrains-mono": "^5.1.0",
+    "@tailwindcss/cli": "^4.3.0",
+    "tailwindcss": "^4.3.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.4.16",
+    "@types/bun": "^1.1.0",
+    "typescript": "^5.6.0"
+  }
+}
