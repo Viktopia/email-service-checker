@@ -1,0 +1,350 @@
+@import "tailwindcss";
+
+/* Tell Tailwind where to look for class names (it scans these files at build). */
+@source "../index.html";
+@source "./**/*.ts";
+
+/* ============================================================================
+ *  Design tokens — exposed as Tailwind utilities through @theme.
+ *  Every color and font in this codebase routes through these vars, so the
+ *  HTML/TS stay declarative (e.g. `bg-paper text-ink font-display`).
+ * ========================================================================= */
+
+@theme {
+    /* Paper & ink (OKLCH for perceptual uniformity) */
+    --color-paper:        oklch(96.5% 0.018 80);
+    --color-paper-warm:   oklch(94.5% 0.024 78);
+    --color-paper-edge:   oklch(86%   0.030 75);
+    --color-rule:         oklch(72%   0.030 70 / 0.55);
+    --color-rule-soft:    oklch(72%   0.030 70 / 0.25);
+
+    --color-ink:          oklch(22%   0.040 250);
+    --color-ink-soft:     oklch(38%   0.028 250);
+    --color-ink-faded:    oklch(58%   0.022 250);
+
+    /* Postmark accents */
+    --color-stamp-red:    oklch(56%   0.180  30);
+    --color-stamp-blue:   oklch(45%   0.130 255);
+    --color-mustard:      oklch(72%   0.140  82);
+    --color-moss:         oklch(52%   0.090 145);
+    --color-plum:         oklch(48%   0.130 320);
+
+    /* Type stack — self-hosted via @fontsource-variable */
+    --font-display: 'Fraunces', 'Times New Roman', serif;
+    --font-body:    'Figtree', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --font-mono:    'JetBrains Mono', ui-monospace, 'Menlo', monospace;
+
+    /* Geometry */
+    --radius-card: 2px;
+    --tracking-stencil: 0.22em;
+}
+
+/* ---- Self-hosted fonts (copied from node_modules by scripts/build.ts) -- */
+
+@font-face {
+    font-family: 'Fraunces';
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url('fonts/fraunces-latin-full-normal.woff2') format('woff2-variations');
+}
+@font-face {
+    font-family: 'Fraunces';
+    font-style: italic;
+    font-display: swap;
+    font-weight: 100 900;
+    src: url('fonts/fraunces-latin-full-italic.woff2') format('woff2-variations');
+}
+@font-face {
+    font-family: 'Figtree';
+    font-style: normal;
+    font-display: swap;
+    font-weight: 300 900;
+    src: url('fonts/figtree-latin-wght-normal.woff2') format('woff2-variations');
+}
+@font-face {
+    font-family: 'JetBrains Mono';
+    font-style: normal;
+    font-display: swap;
+    font-weight: 100 800;
+    src: url('fonts/jetbrains-mono-latin-wght-normal.woff2') format('woff2-variations');
+}
+
+/* ---- Base layer (page chrome) ----------------------------------------- */
+
+@layer base {
+    :root { color-scheme: light; accent-color: var(--color-stamp-red); }
+
+    html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+    body {
+        min-block-size: 100dvh;
+        font-family: var(--font-body);
+        font-feature-settings: 'ss02' on;
+        color: var(--color-ink);
+        background:
+            radial-gradient(ellipse at 20% 0%,  oklch(98% 0.012 80)  0%, transparent 55%),
+            radial-gradient(ellipse at 80% 100%, oklch(92% 0.030 70) 0%, transparent 60%),
+            var(--color-paper);
+        background-attachment: fixed;
+        display: grid;
+        grid-template-rows: auto 1fr auto;
+    }
+
+    /* Paper grain — SVG noise via data URI, zero asset bytes. */
+    body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        opacity: 0.4;
+        mix-blend-mode: multiply;
+        z-index: 0;
+        background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.16 0 0 0 0 0.15 0 0 0 0 0.18 0 0 0 0 0.18 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>");
+    }
+
+    a { color: var(--color-stamp-blue); text-underline-offset: 0.18em; }
+    a:hover { color: var(--color-stamp-red); }
+}
+
+/* ---- Components ------------------------------------------------------- */
+/* These pieces are genuinely custom design (rotated postmark badges,
+ * paper-card double rules, container-query layout) — not utility-soup
+ * candidates. They reference the same @theme tokens, so changing a color
+ * propagates through every component. */
+
+@layer components {
+
+    /* The paper-card chrome shared by the form and the report */
+    .paper-card {
+        position: relative;
+        background: var(--color-paper);
+        border: 1px solid var(--color-paper-edge);
+        border-radius: var(--radius-card);
+        box-shadow:
+            inset 0 0 0 1px oklch(100% 0 0 / 0.45),
+            0 1px 0 0 oklch(100% 0 0 / 0.55),
+            0 30px 50px -32px oklch(20% 0.04 250 / 0.35);
+    }
+    .paper-card--warm { background: var(--color-paper-warm); }
+    .paper-card::before,
+    .paper-card::after {
+        content: '';
+        position: absolute;
+        inset-inline: 8px;
+        block-size: 1px;
+        background: var(--color-rule);
+        opacity: 0.6;
+    }
+    .paper-card::before { inset-block-start: 5px; }
+    .paper-card::after  { inset-block-end: 5px; }
+
+    /* Section caption — small mono uppercase stencil */
+    .stencil {
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        letter-spacing: var(--tracking-stencil);
+        text-transform: uppercase;
+        color: var(--color-ink-faded);
+    }
+
+    /* Display headline with the Fraunces SOFT axis turned up */
+    .display-title {
+        font-family: var(--font-display);
+        font-optical-sizing: auto;
+        font-variation-settings: 'opsz' 144, 'SOFT' 30, 'wght' 600;
+        font-style: italic;
+        font-size: clamp(2.25rem, 6.5vw, 3.5rem);
+        line-height: 1.02;
+        letter-spacing: -0.015em;
+        color: var(--color-ink);
+        text-wrap: balance;
+    }
+    .display-title em {
+        font-style: italic;
+        color: var(--color-stamp-red);
+        font-variation-settings: 'opsz' 144, 'SOFT' 100, 'wght' 600;
+    }
+    .display-name {
+        font-family: var(--font-display);
+        font-variation-settings: 'opsz' 96, 'SOFT' 40, 'wght' 600;
+        font-size: clamp(1.6rem, 4.5vw, 2.15rem);
+        line-height: 1.05;
+        letter-spacing: -0.015em;
+        color: var(--color-ink);
+        text-decoration: none;
+    }
+    a.display-name:hover { color: var(--color-stamp-red); }
+
+    /* Variable-axis input — Fraunces with opsz=36 */
+    .input-display {
+        inline-size: 100%;
+        padding: 0.9rem 0.25rem;
+        background: transparent;
+        border: 0;
+        border-block-end: 1.5px solid var(--color-ink-soft);
+        border-radius: 0;
+        color: var(--color-ink);
+        font-family: var(--font-display);
+        font-variation-settings: 'opsz' 36, 'SOFT' 100, 'wght' 500;
+        font-size: clamp(1.15rem, 3vw, 1.4rem);
+        letter-spacing: -0.01em;
+        transition: border-color 180ms ease;
+    }
+    .input-display::placeholder { color: var(--color-ink-faded); font-style: italic; }
+    .input-display:focus {
+        outline: none;
+        border-block-end-color: var(--color-stamp-red);
+    }
+
+    /* Primary action — uppercase tracked, with sliding arrow */
+    .btn-stencil {
+        appearance: none;
+        inline-size: 100%;
+        padding-inline: 1.4rem;
+        padding-block: 0.9rem;
+        background: var(--color-ink);
+        color: var(--color-paper);
+        font-family: var(--font-body);
+        font-weight: 600;
+        font-size: 0.78rem;
+        letter-spacing: var(--tracking-stencil);
+        text-transform: uppercase;
+        border-radius: var(--radius-card);
+        cursor: pointer;
+        transition: transform 120ms ease, background 180ms ease;
+    }
+    .btn-stencil:hover { background: var(--color-stamp-red); }
+    .btn-stencil:active { transform: translateY(1px); }
+    .btn-stencil[disabled] { opacity: 0.55; cursor: progress; }
+    .btn-stencil::after {
+        content: '→';
+        margin-inline-start: 0.55rem;
+        display: inline-block;
+        transition: transform 200ms ease;
+    }
+    .btn-stencil:hover::after { transform: translateX(4px); }
+    .is-busy .btn-stencil::after { content: '...'; margin-inline-start: 0.35rem; }
+
+    .btn-ghost {
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        padding: 0.55rem 0.9rem;
+        color: var(--color-ink-soft);
+        background: transparent;
+        border: 1px solid var(--color-rule);
+        border-radius: var(--radius-card);
+        cursor: pointer;
+        transition: color 160ms ease, border-color 160ms ease, background 160ms ease;
+    }
+    .btn-ghost:hover {
+        color: var(--color-paper);
+        background: var(--color-ink);
+        border-color: var(--color-ink);
+    }
+
+    /* Postmark badge — rotated circle with dashed inner ring */
+    .postmark {
+        --pm-color: var(--color-ink-soft);
+        inline-size: 96px;
+        block-size: 96px;
+        border: 1.5px solid currentColor;
+        border-radius: 50%;
+        color: var(--pm-color);
+        display: grid;
+        place-items: center;
+        rotate: -8deg;
+        opacity: 0.85;
+        justify-self: end;
+        position: relative;
+        flex-shrink: 0;
+    }
+    .postmark::before {
+        content: '';
+        position: absolute;
+        inset: 6px;
+        border: 1px dashed currentColor;
+        border-radius: 50%;
+        opacity: 0.5;
+    }
+    .postmark-arc {
+        font-family: var(--font-mono);
+        font-size: 0.55rem;
+        font-weight: 700;
+        letter-spacing: 0.18em;
+        text-align: center;
+        text-transform: uppercase;
+        max-inline-size: 70px;
+        line-height: 1.15;
+    }
+    .postmark--mailbox   { --pm-color: var(--color-moss);       }
+    .postmark--consumer  { --pm-color: var(--color-stamp-blue); }
+    .postmark--gateway   { --pm-color: var(--color-stamp-red);  }
+    .postmark--forwarder { --pm-color: var(--color-plum);       }
+    .postmark--relay     { --pm-color: var(--color-mustard);    }
+    .postmark--parking   { --pm-color: var(--color-ink-faded);  }
+
+    /* Container-query layout for findings so they restack on narrow widths */
+    .findings-list {
+        container-type: inline-size;
+        display: grid;
+        gap: 1.1rem;
+    }
+    .finding {
+        position: relative;
+        padding-block: 0.9rem;
+        border-block-start: 1px solid var(--color-rule-soft);
+        display: grid;
+        gap: 0.4rem;
+        grid-template-columns: 1fr;
+    }
+    .finding:first-child { border-block-start: 0; padding-block-start: 0; }
+    @container (min-width: 32rem) {
+        .finding { grid-template-columns: 1fr auto; column-gap: 1.5rem; }
+        .finding .postmark { grid-row: span 3; align-self: center; }
+    }
+
+    /* Report card entrance */
+    .report-card { animation: report-rise 380ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+    @keyframes report-rise {
+        from { opacity: 0; transform: translateY(8px); }
+        to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Loading cursor */
+    .cursor { display: inline-block; inline-size: 0.5ch; animation: blink 1s steps(2, end) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+}
+
+/* ---- Custom utilities (declared with @utility so they ship as classes) - */
+
+@utility crest {
+    inline-size: clamp(78px, 18vw, 112px);
+    block-size: auto;
+    border: 1px solid var(--color-paper-edge);
+    border-radius: var(--radius-card);
+    box-shadow:
+        0 0 0 6px var(--color-paper-warm),
+        0 0 0 7px var(--color-paper-edge),
+        0 8px 18px -10px oklch(20% 0.04 250 / 0.18);
+    rotate: -1.2deg;
+}
+
+/* ---- Accessibility / print ------------------------------------------- */
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+    }
+}
+
+@media print {
+    body::before { display: none; }
+    body { background: white; }
+    .paper-card.paper-card--warm,
+    .site-foot { display: none; }
+    .paper-card { box-shadow: none; border-color: black; }
+}
