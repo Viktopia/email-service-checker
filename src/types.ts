@@ -3,7 +3,8 @@ export type ProviderCategory =
     | 'consumer'
     | 'gateway'
     | 'forwarder'
-    | 'relay';
+    | 'relay'
+    | 'parking';
 
 export interface Provider {
     name: string;

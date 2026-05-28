@@ -60,6 +60,12 @@ export const PROVIDERS: readonly Provider[] = [
     { name: 'Eclipso',              category: 'mailbox', url: 'https://www.eclipso.de',        matchers: ['eclipso.de'] },
     { name: 'Microsoft 365 Germany',category: 'mailbox', url: 'https://www.microsoft.com/microsoft-365', matchers: ['mail.protection.outlook.de'] },
     { name: 'Microsoft 365 US Gov', category: 'mailbox', url: 'https://www.microsoft.com/en-us/microsoft-365/government', matchers: ['mail.protection.office365.us'] },
+    { name: 'Beget',                category: 'mailbox', url: 'https://beget.com',             matchers: ['beget.com'] },
+    { name: 'Timeweb',              category: 'mailbox', url: 'https://timeweb.com',           matchers: ['timeweb.ru'] },
+    { name: 'Reg.ru',               category: 'mailbox', url: 'https://www.reg.ru',            matchers: ['reg.ru'] },
+    { name: 'Freeola',              category: 'mailbox', url: 'https://www.freeola.com',       matchers: ['freeola.com'] },
+    { name: 'Mailcore',             category: 'mailbox', url: 'https://mailcore.io',           matchers: ['mailcore.email', 'mailcore.io'] },
+    { name: 'NameBright Mail',      category: 'mailbox', url: 'https://www.namebright.com',    matchers: ['namebrightmail.com'] },
 
     // ---- Consumer mailbox services ----------------------------------------
     { name: 'Yahoo Mail',           category: 'consumer', url: 'https://mail.yahoo.com',       matchers: ['yahoodns.net'] },
@@ -72,7 +78,7 @@ export const PROVIDERS: readonly Provider[] = [
     { name: 'Web.de',               category: 'consumer', url: 'https://web.de',               matchers: ['web.de'] },
     { name: 'T-Online',             category: 'consumer', url: 'https://www.t-online.de',      matchers: ['t-online.de'] },
     { name: 'Freenet',              category: 'consumer', url: 'https://www.freenet.de',       matchers: ['freenet.de'] },
-    { name: 'NetEase 163',          category: 'consumer', url: 'https://mail.163.com',         matchers: ['163.com', 'mxbiz1.qiye.163.com', 'mxbiz2.qiye.163.com'] },
+    { name: 'NetEase 163',          category: 'consumer', url: 'https://mail.163.com',         matchers: ['mxmail.netease.com', 'netease.com', '163.com', 'qiye.163.com'] },
     { name: 'NetEase 126',          category: 'consumer', url: 'https://mail.126.com',         matchers: ['126.com'] },
     { name: 'QQ Mail',              category: 'consumer', url: 'https://mail.qq.com',          matchers: ['qq.com', 'mail.qq.com'] },
     { name: 'Sina Mail',            category: 'consumer', url: 'https://mail.sina.com.cn',     matchers: ['sinamail.sina.com.cn', 'sina.com'] },
@@ -114,6 +120,17 @@ export const PROVIDERS: readonly Provider[] = [
     { name: 'Optus',                category: 'consumer', url: 'https://www.optus.com.au',     matchers: ['optusnet.com.au'] },
     { name: 'iiNet',                category: 'consumer', url: 'https://www.iinet.net.au',     matchers: ['iinet.net.au'] },
 
+    // ---- Disposable / temporary mailbox services --------------------------
+    { name: 'Mailinator',           category: 'consumer', url: 'https://www.mailinator.com',   matchers: ['mailinator.com'] },
+    { name: 'YOPmail',              category: 'consumer', url: 'https://yopmail.com',          matchers: ['yopmail.com'] },
+    { name: 'Mail.tm',              category: 'consumer', url: 'https://mail.tm',              matchers: ['mail.tm'] },
+    { name: 'Generator.email',      category: 'consumer', url: 'https://generator.email',      matchers: ['generator.email'] },
+    { name: 'Dropmail.me',          category: 'consumer', url: 'https://dropmail.me',          matchers: ['dropmail.me'] },
+    { name: 'Discard.email',        category: 'consumer', url: 'https://discard.email',        matchers: ['discard.email'] },
+    { name: '10mail',               category: 'consumer', url: 'https://10mail.org',           matchers: ['10mail.org', '10mail.xyz'] },
+    { name: 'TempM',                category: 'consumer', url: 'https://tempm.com',            matchers: ['tempm.com'] },
+    { name: 'EmailFake',            category: 'consumer', url: 'https://emailfake.com',        matchers: ['emailfake.com'] },
+
     // ---- Security gateways -------------------------------------------------
     { name: 'Proofpoint',           category: 'gateway', url: 'https://www.proofpoint.com',    matchers: ['pphosted.com', 'ppe-hosted.com'] },
     { name: 'Mimecast',             category: 'gateway', url: 'https://www.mimecast.com',      matchers: ['mimecast.com', 'mimecast.co.za', 'mimecast.com.au'] },
@@ -137,6 +154,7 @@ export const PROVIDERS: readonly Provider[] = [
     { name: 'SpamHero',             category: 'gateway', url: 'https://www.spamhero.com',      matchers: ['spamhero.com'] },
     { name: 'MailChannels',         category: 'gateway', url: 'https://www.mailchannels.com',  matchers: ['mailchannels.net'] },
     { name: 'Intermedia',           category: 'gateway', url: 'https://www.intermedia.com',    matchers: ['intermedia.net'] },
+    { name: 'MailSpamProtection (SiteGround)', category: 'gateway', url: 'https://www.siteground.com', matchers: ['mailspamprotection.com'] },
 
     // ---- Forwarders --------------------------------------------------------
     { name: 'Cloudflare Email Routing', category: 'forwarder', url: 'https://www.cloudflare.com/products/email-routing/', matchers: ['mx.cloudflare.net'] },
@@ -146,6 +164,10 @@ export const PROVIDERS: readonly Provider[] = [
     { name: 'Pobox',                category: 'forwarder', url: 'https://www.pobox.com',       matchers: ['pobox.com'] },
     { name: '33Mail',               category: 'forwarder', url: 'https://33mail.com',          matchers: ['33mail.com'] },
     { name: 'Burner Mail',          category: 'forwarder', url: 'https://burnermail.io',       matchers: ['burnermail.io'] },
+    { name: 'ImprovMX',             category: 'forwarder', url: 'https://improvmx.com',        matchers: ['improvmx.com'] },
+    { name: 'Namecheap Email Forwarding', category: 'forwarder', url: 'https://www.namecheap.com/domains/freedns/', matchers: ['registrar-servers.com'] },
+    { name: 'Spaceship Email Forwarding', category: 'forwarder', url: 'https://www.spaceship.com', matchers: ['spaceship.net', 'efwd.spaceship.net'] },
+    { name: 'SpamGourmet',          category: 'forwarder', url: 'https://www.spamgourmet.com', matchers: ['spamgourmet.com'] },
 
     // ---- Inbound relays (transactional) -----------------------------------
     { name: 'Amazon SES',           category: 'relay', url: 'https://aws.amazon.com/ses/',     matchers: ['amazonaws.com'] },
@@ -161,6 +183,11 @@ export const PROVIDERS: readonly Provider[] = [
     { name: 'Pepipost / Netcore',   category: 'relay', url: 'https://netcorecloud.com',        matchers: ['pepipost.com', 'netcorecloud.com'] },
     { name: 'MailPace',             category: 'relay', url: 'https://mailpace.com',            matchers: ['mailpace.com'] },
     { name: 'Resend',               category: 'relay', url: 'https://resend.com',              matchers: ['resend.com'] },
+
+    // ---- Domain parking / aftermarket (MX records exist but mail isn't delivered) -----
+    { name: 'Above.com Parking',    category: 'parking', url: 'https://above.com',             matchers: ['park-mx.above.com', 'above.com'] },
+    { name: 'Aftermarket.pl Parking', category: 'parking', url: 'https://www.aftermarket.pl',  matchers: ['blackhole.aftermarket.pl', 'aftermarket.pl'] },
+    { name: 'Key-Systems / KV Parking', category: 'parking', url: 'https://www.key-systems.net', matchers: ['kv.de'] },
 ];
 
 export const CATEGORY_LABEL: Record<ProviderCategory, string> = {
@@ -169,10 +196,12 @@ export const CATEGORY_LABEL: Record<ProviderCategory, string> = {
     gateway:   'Security gateway',
     forwarder: 'Forwarder',
     relay:     'Inbound relay',
+    parking:   'Domain parking',
 };
 
 export const CATEGORY_NOTE: Partial<Record<ProviderCategory, string>> = {
     gateway:   'A security gateway filters mail before it reaches the real mailbox provider. The mailbox itself is not visible from MX records alone.',
     forwarder: 'A forwarder receives mail and re-sends it to another address. The final mailbox is not visible from MX records alone.',
     relay:     'An inbound relay accepts mail via SMTP and hands it to an application via API or webhook, not to a human mailbox.',
+    parking:   "This domain's MX records point at a parking / aftermarket service. Mail sent here is most likely silently discarded — the domain isn't really receiving email.",
 };

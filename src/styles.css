@@ -284,6 +284,7 @@
     .postmark--gateway   { --pm-color: var(--color-stamp-red);  }
     .postmark--forwarder { --pm-color: var(--color-plum);       }
     .postmark--relay     { --pm-color: var(--color-mustard);    }
+    .postmark--parking   { --pm-color: var(--color-ink-faded);  }
 
     /* Container-query layout for findings so they restack on narrow widths */
     .findings-list {

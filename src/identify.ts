@@ -43,8 +43,8 @@ export function identifyProviders(mxRecords: readonly MxRecord[]): Finding[] {
         else seen.set(provider.name, { provider, matchedMx: [mx] });
     }
     // Order findings by category importance for display:
-    // gateway > forwarder > relay > mailbox > consumer
-    const order: Record<string, number> = { gateway: 0, forwarder: 1, relay: 2, mailbox: 3, consumer: 4 };
+    // gateway > forwarder > parking > relay > mailbox > consumer
+    const order: Record<string, number> = { gateway: 0, forwarder: 1, parking: 2, relay: 3, mailbox: 4, consumer: 5 };
     return [...seen.values()].sort((a, b) => order[a.provider.category]! - order[b.provider.category]!);
 }
 
