@@ -4,23 +4,28 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="theme-color" content="#eff1f5">
-    <title>Email Service Checker — Find Email Providers</title>
-    <meta name="title"       content="Email Service Checker — Find Email Providers">
-    <meta name="description" content="Identify which email provider, security gateway, or forwarder handles a domain's mail. Detects Google Workspace, Microsoft 365, Proofpoint, Mimecast, Cloudflare Email Routing, Fastmail, Zoho, Proton, and many more from public MX records.">
-    <meta name="keywords"    content="email service checker, MX record lookup, find email provider, Google Workspace, Microsoft 365, Proofpoint, Mimecast, Cisco IronPort, Cloudflare Email Routing, Zoho Mail, Fastmail, ProtonMail, Yahoo Mail, Apple iCloud, AOL, Yandex, GMX, Tutanota, Migadu, SimpleLogin, addy.io, ForwardEmail, Amazon SES, Postmark, Mailgun, SendGrid">
+    <title>{{TITLE}}</title>
+    <meta name="title"       content="{{TITLE}}">
+    <meta name="description" content="{{DESCRIPTION}}">
     <meta name="author"      content="Viktor Petersson">
+    <meta name="robots"      content="index, follow, max-image-preview:large, max-snippet:-1">
+    <link rel="canonical"    href="{{CANONICAL}}">
 
     <meta property="og:type"        content="website">
-    <meta property="og:title"       content="Email Service Checker — Find Email Providers">
-    <meta property="og:description" content="Find out which provider, security gateway, or forwarder handles a domain's email, from public MX records.">
-    <meta property="og:image"       content="logo.webp">
+    <meta property="og:site_name"   content="Email Service Checker">
+    <meta property="og:title"       content="{{OG_TITLE}}">
+    <meta property="og:description" content="{{OG_DESCRIPTION}}">
+    <meta property="og:image"       content="https://emailservicechecker.com/logo.webp">
+    <meta property="og:url"         content="{{CANONICAL}}">
     <meta name="twitter:card"       content="summary">
+    <meta name="twitter:title"      content="{{OG_TITLE}}">
+    <meta name="twitter:description" content="{{OG_DESCRIPTION}}">
 
-    <link rel="icon" href="logo.webp" type="image/webp">
+    <link rel="icon" href="/logo.webp" type="image/webp">
     <link rel="preconnect" href="https://dns.google">
-    <link rel="stylesheet" href="styles.css">
-    <link rel="preload" as="font" type="font/woff2" href="fonts/bricolage-grotesque-latin-standard-normal.woff2" crossorigin>
-    <link rel="preload" as="font" type="font/woff2" href="fonts/onest-latin-wght-normal.woff2" crossorigin>
+    <link rel="stylesheet" href="/styles.css">
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/bricolage-grotesque-latin-standard-normal.woff2" crossorigin>
+    <link rel="preload" as="font" type="font/woff2" href="/fonts/onest-latin-wght-normal.woff2" crossorigin>
 
     <script async src="https://www.googletagmanager.com/gtag/js?id=G-1TBL4YJLRE"></script>
     <script>
@@ -29,32 +34,19 @@
         gtag('js', new Date());
         gtag('config', 'G-1TBL4YJLRE');
     </script>
-    <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "WebSite",
-            "name": "Email Service Checker",
-            "url": "https://emailservicechecker.com",
-            "potentialAction": {
-                "@type": "SearchAction",
-                "target": "https://emailservicechecker.com?domain={domain}",
-                "query-input": "required name=domain"
-            }
-        }
-    </script>
-    <script type="module" src="main.js"></script>
+    <script type="application/ld+json">{{JSON_LD}}</script>
+    <script type="module" src="/main.js"></script>
 </head>
 <body>
     <main class="relative z-10 flex justify-center px-6 pt-16 pb-20 sm:pt-20">
         <div class="w-full max-w-[40rem] flex flex-col gap-10">
 
             <header class="flex flex-col items-center text-center gap-5">
-                <img class="crest" src="logo.webp" alt="">
-                <p class="eyebrow">MX inspection</p>
-                <h1 class="display-hero">What's <em>actually</em> handling the mail?</h1>
-                <p class="max-w-[44ch] text-subtext-1 text-[1.0625rem]">
-                    Type a domain or an email address. We'll look up its public MX records and report the provider, security gateway, or forwarder responsible.
-                </p>
+                <a href="/" aria-label="Home" class="inline-block"><img class="crest" src="/logo.webp" alt=""></a>
+                {{BREADCRUMBS}}
+                <p class="eyebrow">{{HERO_EYEBROW}}</p>
+                <h1 class="display-hero">{{HERO_TITLE}}</h1>
+                <p class="max-w-[44ch] text-subtext-1 text-[1.0625rem]">{{HERO_LEDE}}</p>
             </header>
 
             <form id="check-form" class="card p-3 sm:p-4 flex flex-col sm:flex-row gap-3" autocomplete="off" novalidate>
@@ -70,7 +62,7 @@
                     required
                     inputmode="email">
                 <button type="submit" id="check-button" class="btn-primary">
-                    <span id="check-button-label">Inspect</span>
+                    <span id="check-button-label">Check</span>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
                         <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                     </svg>
@@ -78,6 +70,8 @@
             </form>
 
             <div id="result"></div>
+
+            {{PROFILE_SECTION}}
         </div>
     </main>
 
@@ -88,6 +82,8 @@
             </svg>
             <span>GitHub</span>
         </a>
+        <span class="text-surface-1">·</span>
+        <a href="/sitemap.xml" class="hover:text-text transition-colors">Sitemap</a>
         <span class="text-surface-1">·</span>
         <span>&copy; {{YEAR}} <a href="https://studio.viktopia.io" target="_blank" rel="noopener">Viktopia Studio</a></span>
     </footer>
