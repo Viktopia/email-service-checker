@@ -1,5 +1,5 @@
 import type { ConsumerHit, Finding, MxRecord } from './types.ts';
-import { CATEGORY_LABEL, CATEGORY_NOTE } from './providers.ts';
+import { CATEGORY_LABEL, CATEGORY_NOTE, providerSlug } from './providers.ts';
 
 function el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
@@ -70,9 +70,10 @@ function findingBlock(finding: Finding): HTMLElement {
     const cat = provider.category;
     const block = el('div', { class: 'finding' });
 
-    const title = provider.url
-        ? el('a', { class: 'display-name finding-title', href: provider.url, target: '_blank', rel: 'noopener' }, provider.name)
-        : el('h3', { class: 'display-name finding-title' }, provider.name);
+    const title = el('a', {
+        class: 'display-name finding-title',
+        href: `/provider/${providerSlug(provider)}/`,
+    }, provider.name);
     block.append(title);
     block.append(el('div', { class: 'finding-badge' }, categoryBadge(cat)));
 
