@@ -16,9 +16,8 @@ const CSS   = join(ROOT, 'src/styles.css');
 const NM    = join(ROOT, 'node_modules');
 
 const FONT_FILES = [
-    '@fontsource-variable/fraunces/files/fraunces-latin-full-normal.woff2',
-    '@fontsource-variable/fraunces/files/fraunces-latin-full-italic.woff2',
-    '@fontsource-variable/figtree/files/figtree-latin-wght-normal.woff2',
+    '@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-standard-normal.woff2',
+    '@fontsource-variable/onest/files/onest-latin-wght-normal.woff2',
     '@fontsource-variable/jetbrains-mono/files/jetbrains-mono-latin-wght-normal.woff2',
 ] as const;
 
