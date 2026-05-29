@@ -17,7 +17,7 @@ const result  = document.getElementById('result')     as HTMLElement;
 
 function setBusy(busy: boolean): void {
     button.disabled = busy;
-    buttonLabel.textContent = busy ? 'Inspecting…' : 'Inspect';
+    buttonLabel.textContent = busy ? 'Checking…' : 'Check';
     form.classList.toggle('is-busy', busy);
 }
 

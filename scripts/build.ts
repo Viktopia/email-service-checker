@@ -125,6 +125,32 @@ const PUBLISHER_LD = {
     },
 };
 
+// Shared source of truth for the homepage FAQ — rendered both as visible
+// HTML (see homeContentSection) and as FAQPage structured data below, so the
+// two can never drift apart.
+const FAQ: ReadonlyArray<{ q: string; a: string }> = [
+    {
+        q: 'How do I find out who my email provider is?',
+        a: "Enter your domain or email address — everything after the @ — in the checker at the top of this page. It reads the domain's public MX records over DNS and matches them against 160+ known services, so you instantly see whether Google Workspace, Microsoft 365, Proton, Fastmail, a security gateway, or something else is handling the mail.",
+    },
+    {
+        q: 'How can I check the email service provider for any domain?',
+        a: 'Type the domain into the form above and press Check. Every domain that receives email publishes MX (Mail Exchange) records in DNS, and this email provider checker resolves them and names the service behind them. It works for any domain, not just your own — handy for vetting a customer, vendor, or competitor.',
+    },
+    {
+        q: 'Can I find my email provider without logging in anywhere?',
+        a: "Yes. The lookup uses only public DNS records, so you never sign in or share a password — you just need the domain name. That is also why it can identify the provider for a domain you don't control.",
+    },
+    {
+        q: 'What is an email service provider?',
+        a: 'An email service provider is the company that runs the mail servers for a domain, where messages are received and inboxes live. Common providers are Google Workspace and Microsoft 365 for business, and Gmail, Yahoo, iCloud, and Proton for personal mail. A domain can also route mail through a security gateway or forwarder that sits in front of the real provider.',
+    },
+    {
+        q: 'Why does the checker sometimes show a gateway or forwarder instead of a mailbox?',
+        a: 'Some domains point their MX records at a spam-filtering gateway (such as Proofpoint or Mimecast) or at a forwarding service rather than at the final mailbox. In those cases the MX records reveal the relay, and the real mailbox provider can be hidden behind it. The report labels this so you know exactly what you are looking at.',
+    },
+];
+
 const HOMEPAGE_LD = JSON.stringify({
     '@context': 'https://schema.org',
     '@graph': [
@@ -144,6 +170,17 @@ const HOMEPAGE_LD = JSON.stringify({
                 },
                 'query-input': 'required name=domain',
             },
+        },
+        {
+            '@type': 'FAQPage',
+            '@id': `${SITE_ORIGIN}/#faq`,
+            inLanguage: 'en',
+            isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+            mainEntity: FAQ.map(({ q, a }) => ({
+                '@type': 'Question',
+                name: q,
+                acceptedAnswer: { '@type': 'Answer', text: a },
+            })),
         },
     ],
 });
@@ -267,20 +304,55 @@ function breadcrumbHtml(items: Array<{ name: string; href?: string }>): string {
     </nav>`;
 }
 
+// Homepage-only content: a short how-to guide plus an FAQ. Targets the
+// informational "how to find out who my email provider is" queries and backs
+// the FAQPage structured data in HOMEPAGE_LD. Rendered only on the homepage so
+// it is not duplicated across the per-provider pages.
+function homeContentSection(): string {
+    const faqHtml = FAQ.map(({ q, a }) => `
+                <div class="flex flex-col gap-1.5">
+                    <h3 class="text-text font-semibold text-[1.05rem]">${escapeHtml(q)}</h3>
+                    <p class="text-subtext-1 text-[0.95rem]">${escapeHtml(a)}</p>
+                </div>`).join('');
+
+    return `
+        <section class="card p-6 sm:p-8 flex flex-col gap-5">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">Guide</p>
+                <h2 class="display-name">How to find out who your email provider is</h2>
+            </div>
+            <p class="text-subtext-1">Every domain that can receive email advertises its mail servers in public DNS through <strong>MX (Mail Exchange) records</strong>. Reading those records tells you which email service provider a domain uses — no login or password required. Here is how to check it:</p>
+            <ol class="flex flex-col gap-3 text-subtext-1 text-[0.95rem] list-decimal pl-5 marker:text-overlay-1">
+                <li>Take the domain you want to look up — for an email address, that is everything after the <code>@</code>.</li>
+                <li>Enter it in the checker at the top of this page and press Check.</li>
+                <li>The tool resolves the domain's MX records over DNS and matches them against 160+ known providers.</li>
+                <li>You get the provider name, its category — mailbox, gateway, forwarder, or relay — and the raw MX records as evidence.</li>
+            </ol>
+        </section>
+
+        <section class="card p-6 sm:p-8 flex flex-col gap-6" aria-labelledby="faq-heading">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">FAQ</p>
+                <h2 id="faq-heading" class="display-name">Checking email providers — common questions</h2>
+            </div>${faqHtml}
+        </section>`;
+}
+
 // ---- 5. Emit homepage -----------------------------------------------------
 
 writeFileSync(join(DIST, 'index.html'), render({
-    TITLE: 'Email Service Checker — Find Email Providers',
-    DESCRIPTION: 'Find out who runs the email for any domain. Detects Google Workspace, Microsoft 365, Proton, Apple, Yahoo, Fastmail, Zoho, and over 160 other providers.',
+    TITLE: "Email Service Checker — Check Any Domain's Email Provider",
+    DESCRIPTION: "Check any domain's email provider in seconds. Find out who runs the email — Google Workspace, Microsoft 365, Proton, Apple, Yahoo, Fastmail, Zoho, and 160+ others — straight from public MX records.",
     CANONICAL: `${SITE_ORIGIN}/`,
-    OG_TITLE: 'Email Service Checker — Find Email Providers',
-    OG_DESCRIPTION: "Type a domain. We'll tell you which service is running its email.",
+    OG_TITLE: "Email Service Checker — Check Any Domain's Email Provider",
+    OG_DESCRIPTION: "Type a domain or email address and we'll check which service is running its email.",
     JSON_LD: HOMEPAGE_LD,
     BREADCRUMBS: '',
-    HERO_EYEBROW: 'Email provider finder',
+    HERO_EYEBROW: 'Email provider checker',
     HERO_TITLE: "What's <em>actually</em> handling the mail?",
-    HERO_LEDE: "Type a domain or email address. We'll tell you which service is running its email — Google, Microsoft, Proton, Apple, and 160+ others.",
+    HERO_LEDE: "Type a domain or email address to find out who your email provider is. We'll check which service runs its mail — Google, Microsoft, Proton, Apple, and 160+ others.",
     PROFILE_SECTION: '',
+    CONTENT_SECTION: homeContentSection(),
 }));
 
 // ---- 6. Emit per-provider pages ------------------------------------------
@@ -312,6 +384,7 @@ for (const p of PROVIDERS) {
         HERO_TITLE: escapeHtml(p.name),
         HERO_LEDE: `${p.name} is ${categoryArticle(p.category)} ${CATEGORY_LABEL[p.category].toLowerCase()}. Type any domain below to see if its email runs through ${p.name}.`,
         PROFILE_SECTION: profileSection(p),
+        CONTENT_SECTION: '',
     }));
 }
 
