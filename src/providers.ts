@@ -1,3 +1,14 @@
+// NOTE: this file is exempt from Biome's FORMATTER (see the override in
+// biome.json). It is still linted and still type-checked.
+//
+// The PROVIDERS table below is hand-aligned into columns so that name,
+// category, url and matchers each read down the page — which is how you
+// actually scan 161 entries looking for a duplicate or a missing matcher. The
+// formatter reflows it by 774 lines and destroys that. Exempting this one file
+// is what makes it possible to enforce `bun run check` across everything else.
+//
+// Keep new rows aligned with their neighbours.
+
 import type { Provider, ProviderCategory } from './types.ts';
 
 export function providerSlug(provider: Pick<Provider, 'name'>): string {

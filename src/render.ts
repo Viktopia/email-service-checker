@@ -1,5 +1,5 @@
-import type { ConsumerHit, Finding, MxRecord } from './types.ts';
 import { CATEGORY_LABEL, CATEGORY_NOTE, providerSlug } from './providers.ts';
+import type { ConsumerHit, Finding, MxRecord } from './types.ts';
 
 function el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
@@ -66,7 +66,9 @@ function mxTable(mxRecords: readonly MxRecord[]): HTMLElement {
     const tbody = el('tbody');
     for (const mx of mxRecords) {
         tbody.append(
-            el('tr', {},
+            el(
+                'tr',
+                {},
                 el('td', { class: 'mx-prio' }, String(mx.priority)),
                 el('td', { class: 'mx-host' }, mx.host),
             ),
@@ -85,7 +87,9 @@ function shareButton(domain: string): HTMLButtonElement {
         try {
             await navigator.clipboard.writeText(url.toString());
             btn.textContent = 'Link copied';
-            setTimeout(() => { btn.textContent = 'Copy share link'; }, 1500);
+            setTimeout(() => {
+                btn.textContent = 'Copy share link';
+            }, 1500);
         } catch {
             btn.textContent = 'Copy failed';
         }
@@ -98,10 +102,14 @@ function findingBlock(finding: Finding): HTMLElement {
     const cat = provider.category;
     const block = el('div', { class: 'finding' });
 
-    const title = el('a', {
-        class: 'display-name finding-title',
-        href: `/provider/${providerSlug(provider)}/`,
-    }, provider.name);
+    const title = el(
+        'a',
+        {
+            class: 'display-name finding-title',
+            href: `/provider/${providerSlug(provider)}/`,
+        },
+        provider.name,
+    );
     block.append(title);
     block.append(el('div', { class: 'finding-badge' }, categoryBadge(cat)));
 
@@ -113,12 +121,19 @@ function findingBlock(finding: Finding): HTMLElement {
 
 function consumerCallout(hit: ConsumerHit): HTMLElement {
     const label = hit.kind === 'disposable' ? 'Disposable mailbox service' : 'Free consumer mailbox';
-    const detail = hit.kind === 'disposable'
-        ? 'This domain is published in the open disposable-mailbox catalogue — addresses on it are usually short-lived throwaways.'
-        : 'This domain is in the open free-mailbox catalogue. Mail sent here goes to a personal account, not a business mailbox.';
-    return el('div', { class: 'finding' },
+    const detail =
+        hit.kind === 'disposable'
+            ? 'This domain is published in the open disposable-mailbox catalogue — addresses on it are usually short-lived throwaways.'
+            : 'This domain is in the open free-mailbox catalogue. Mail sent here goes to a personal account, not a business mailbox.';
+    return el(
+        'div',
+        { class: 'finding' },
         el('h3', { class: 'display-name finding-title' }, label),
-        el('div', { class: 'finding-badge' }, el('span', { class: 'cat-badge cat-consumer' }, 'Open dataset')),
+        el(
+            'div',
+            { class: 'finding-badge' },
+            el('span', { class: 'cat-badge cat-consumer' }, 'Open dataset'),
+        ),
         el('p', { class: 'finding-note' }, detail),
     );
 }
@@ -146,7 +161,9 @@ export function reportSummary({ domain, findings, mxRecords, consumerHit }: Rend
     const parts: string[] = [];
 
     if (findings.length > 0) {
-        parts.push(findings.map(f => `${f.provider.name} — ${CATEGORY_LABEL[f.provider.category]}`).join('; '));
+        parts.push(
+            findings.map((f) => `${f.provider.name} — ${CATEGORY_LABEL[f.provider.category]}`).join('; '),
+        );
     } else if (mxRecords.length === 0) {
         parts.push(`${domain} publishes no MX records, so it does not receive email`);
     } else {
@@ -154,7 +171,9 @@ export function reportSummary({ domain, findings, mxRecords, consumerHit }: Rend
     }
 
     if (consumerHit) {
-        parts.push(consumerHit.kind === 'disposable' ? 'a disposable mailbox service' : 'a free consumer mailbox');
+        parts.push(
+            consumerHit.kind === 'disposable' ? 'a disposable mailbox service' : 'a free consumer mailbox',
+        );
     }
 
     if (mxRecords.length > 0) {
@@ -168,8 +187,12 @@ function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput):
     const report = el('section', { class: CARD });
 
     report.append(
-        el('div', { class: 'report-row flex items-center justify-between gap-3' },
-            el('div', { class: 'flex flex-col min-w-0' },
+        el(
+            'div',
+            { class: 'report-row flex items-center justify-between gap-3' },
+            el(
+                'div',
+                { class: 'flex flex-col min-w-0' },
                 el('span', { class: 'eyebrow mb-1' }, 'Subject'),
                 el('span', { class: 'font-mono text-[0.95rem] text-ink break-all' }, domain),
             ),
@@ -181,26 +204,47 @@ function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput):
 
     if (findings.length === 0 && mxRecords.length > 0) {
         findingsWrap.append(
-            el('div', { class: 'finding' },
+            el(
+                'div',
+                { class: 'finding' },
                 el('h3', { class: 'display-name finding-title' }, 'Unrecognised provider'),
-                el('div', { class: 'finding-badge' }, el('span', { class: 'cat-badge cat-parking' }, 'Inconclusive')),
-                el('p', { class: 'finding-note' },
+                el(
+                    'div',
+                    { class: 'finding-badge' },
+                    el('span', { class: 'cat-badge cat-parking' }, 'Inconclusive'),
+                ),
+                el(
+                    'p',
+                    { class: 'finding-note' },
                     'MX records were found, but none match a known provider in our catalogue. ',
-                    el('a', {
-                        href: `https://github.com/viktopia/email-service-checker/issues/new?title=${encodeURIComponent(`Add provider for ${domain}`)}`,
-                        target: '_blank',
-                        rel: 'noopener',
-                    }, 'Suggest a provider →'),
+                    el(
+                        'a',
+                        {
+                            href: `https://github.com/viktopia/email-service-checker/issues/new?title=${encodeURIComponent(`Add provider for ${domain}`)}`,
+                            target: '_blank',
+                            rel: 'noopener',
+                        },
+                        'Suggest a provider →',
+                    ),
                 ),
             ),
         );
     } else if (mxRecords.length === 0) {
         findingsWrap.append(
-            el('div', { class: 'finding' },
+            el(
+                'div',
+                { class: 'finding' },
                 el('h3', { class: 'display-name finding-title' }, 'No MX records'),
-                el('div', { class: 'finding-badge' }, el('span', { class: 'cat-badge cat-parking' }, 'No mail exchange')),
-                el('p', { class: 'finding-note' },
-                    `${domain} publishes no MX records, so it almost certainly does not receive email.`),
+                el(
+                    'div',
+                    { class: 'finding-badge' },
+                    el('span', { class: 'cat-badge cat-parking' }, 'No mail exchange'),
+                ),
+                el(
+                    'p',
+                    { class: 'finding-note' },
+                    `${domain} publishes no MX records, so it almost certainly does not receive email.`,
+                ),
             ),
         );
     } else {
@@ -212,17 +256,15 @@ function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput):
     report.append(findingsWrap);
     if (mxRecords.length > 0) report.append(mxTable(mxRecords));
 
-    report.append(
-        el('div', { class: 'report-row flex justify-end' },
-            shareButton(domain),
-        ),
-    );
+    report.append(el('div', { class: 'report-row flex justify-end' }, shareButton(domain)));
     return report;
 }
 
 export function renderError(target: HTMLElement, message: string): void {
     target.replaceChildren(
-        el('section', { class: `${CARD} border-red` },
+        el(
+            'section',
+            { class: `${CARD} border-red` },
             el('p', { class: 'eyebrow text-red mb-2' }, 'Lookup failed'),
             el('h3', { class: 'display-name' }, message),
         ),
@@ -231,9 +273,13 @@ export function renderError(target: HTMLElement, message: string): void {
 
 export function renderLoading(target: HTMLElement, domain: string): void {
     target.replaceChildren(
-        el('section', { class: CARD },
+        el(
+            'section',
+            { class: CARD },
             el('p', { class: 'eyebrow mb-2' }, 'Querying DNS'),
-            el('h3', { class: 'display-name text-ink-muted' },
+            el(
+                'h3',
+                { class: 'display-name text-ink-muted' },
                 'Resolving ',
                 el('span', { class: 'font-mono text-ink' }, domain),
                 el('span', { class: 'cursor' }, '_'),
