@@ -5,14 +5,16 @@
   "type": "module",
   "description": "Identify which email provider, security gateway, or forwarder handles a domain's mail by inspecting public MX records.",
   "scripts": {
-    "datasets": "bun run scripts/build-data.ts",
+    "datasets": "bun run scripts/refresh-datasets.ts",
     "build": "bun run scripts/build.ts",
     "dev": "bun run scripts/build.ts --serve",
+    "verify": "bun run scripts/verify-build.ts",
+    "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "lint": "biome lint src scripts",
-    "format": "biome format --write src scripts",
-    "check": "biome check src scripts",
-    "clean": "rm -rf dist src/data/consumer-domains.ts"
+    "lint": "biome lint src scripts tests",
+    "format": "biome format --write src scripts tests",
+    "check": "biome check src scripts tests",
+    "clean": "rm -rf dist"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.2.10",

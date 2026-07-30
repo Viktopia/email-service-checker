@@ -1,6 +1,6 @@
-import type { ConsumerHit, Finding, MxRecord, Provider } from './types.ts';
+import { type ConsumerShard, SHARD_BASE_PATH, shardIdFor } from './consumer-shards.ts';
 import { PROVIDERS } from './providers.ts';
-import { FREE_DOMAINS, DISPOSABLE_DOMAINS } from './data/consumer-domains.ts';
+import type { ConsumerHit, Finding, MxRecord, Provider } from './types.ts';
 
 export function normalizeDomain(raw: string): string {
     if (!raw) return '';
@@ -11,11 +11,12 @@ export function normalizeDomain(raw: string): string {
 }
 
 export function isValidDomain(domain: string): boolean {
-    return (
-        /^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/.test(domain) &&
-        !domain.endsWith('-') &&
-        domain.length <= 253
-    );
+    if (domain.length > 253) return false;
+    // Two or more labels; each starts and ends alphanumeric with hyphens only
+    // in the middle; the TLD is letters only. The previous pattern only
+    // guarded the very first character, so it accepted "foo.-bar.com".
+    // Punycode is plain ASCII, so IDNs still pass as xn--*.
+    return /^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(domain);
 }
 
 function matchProvider(mxHost: string): Provider | null {
@@ -44,12 +45,46 @@ export function identifyProviders(mxRecords: readonly MxRecord[]): Finding[] {
     }
     // Order findings by category importance for display:
     // gateway > forwarder > parking > relay > mailbox > consumer
-    const order: Record<string, number> = { gateway: 0, forwarder: 1, parking: 2, relay: 3, mailbox: 4, consumer: 5 };
+    const order: Record<string, number> = {
+        gateway: 0,
+        forwarder: 1,
+        parking: 2,
+        relay: 3,
+        mailbox: 4,
+        consumer: 5,
+    };
     return [...seen.values()].sort((a, b) => order[a.provider.category]! - order[b.provider.category]!);
 }
 
-export function consumerLookup(domain: string): ConsumerHit | null {
-    if (DISPOSABLE_DOMAINS.has(domain)) return { kind: 'disposable', domain };
-    if (FREE_DOMAINS.has(domain))       return { kind: 'free',       domain };
+/**
+ * One in-flight promise per shard id, so checking several domains in a session
+ * refetches nothing and two concurrent checks share a single request.
+ */
+const shardCache = new Map<string, Promise<ConsumerShard | null>>();
+
+function loadShard(shardId: string): Promise<ConsumerShard | null> {
+    const cached = shardCache.get(shardId);
+    if (cached) return cached;
+
+    const pending = fetch(`${SHARD_BASE_PATH}/${shardId}.json`)
+        .then((res) => (res.ok ? (res.json() as Promise<ConsumerShard>) : null))
+        .catch(() => null);
+
+    shardCache.set(shardId, pending);
+    return pending;
+}
+
+/**
+ * Is this domain a known free or disposable mailbox host?
+ *
+ * Resolves to null when the shard cannot be loaded. That is deliberate: the
+ * consumer callout only supplements the MX findings, so a failed shard fetch
+ * should quietly omit it rather than fail the whole lookup.
+ */
+export async function consumerLookup(domain: string): Promise<ConsumerHit | null> {
+    const shard = await loadShard(shardIdFor(domain));
+    if (!shard) return null;
+    if (shard.d.includes(domain)) return { kind: 'disposable', domain };
+    if (shard.f.includes(domain)) return { kind: 'free', domain };
     return null;
 }

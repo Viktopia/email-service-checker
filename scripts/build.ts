@@ -19,6 +19,8 @@ import {
     writeFileSync,
 } from 'node:fs';
 import { join } from 'node:path';
+import { type ConsumerShard, SHARD_BASE_PATH, SHARD_COUNT, shardIdFor } from '../src/consumer-shards.ts';
+import { DATASET_FILES, type DatasetKind, parseDatasetText } from '../src/datasets.ts';
 import { CATEGORY_LABEL, PROVIDERS, providerSlug } from '../src/providers.ts';
 import type { Provider } from '../src/types.ts';
 
@@ -26,12 +28,35 @@ const ROOT = new URL('..', import.meta.url).pathname;
 const DIST = join(ROOT, 'dist');
 const PUBL = join(ROOT, 'public');
 const HTML = join(ROOT, 'index.html');
-const CSS  = join(ROOT, 'src/styles.css');
-const NM   = join(ROOT, 'node_modules');
+const CSS = join(ROOT, 'src/styles.css');
+const NM = join(ROOT, 'node_modules');
 
 const SITE_ORIGIN = 'https://emailservicechecker.com';
 const YEAR = String(new Date().getFullYear());
 const TODAY = new Date().toISOString().slice(0, 10);
+
+/**
+ * Last commit date (YYYY-MM-DD) touching any of `paths`, for <lastmod>.
+ *
+ * Stamping every URL with the build date told Google that all 162 pages
+ * changed on every deploy, including when the only change was unrelated — so
+ * the signal was worthless. A page's real lastmod is the last time one of its
+ * inputs was committed.
+ *
+ * Falls back to the build date when git history is unavailable (a tarball
+ * export, or a shallow clone that does not reach the relevant commit). CI uses
+ * fetch-depth: 0 so the real dates are present there.
+ */
+function gitLastModified(...paths: string[]): string {
+    const git = Bun.spawnSync({
+        cmd: ['git', 'log', '-1', '--format=%cs', '--', ...paths],
+        cwd: ROOT,
+        stdout: 'pipe',
+        stderr: 'pipe',
+    });
+    const date = git.stdout.toString().trim();
+    return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date : TODAY;
+}
 
 const FONT_FILES = [
     '@fontsource-variable/bricolage-grotesque/files/bricolage-grotesque-latin-standard-normal.woff2',
@@ -41,9 +66,13 @@ const FONT_FILES = [
 
 const serve = process.argv.includes('--serve');
 
-if (!existsSync(join(ROOT, 'src/data/consumer-domains.ts'))) {
-    console.error('src/data/consumer-domains.ts is missing — run `bun run datasets` first.');
-    process.exit(1);
+for (const path of Object.values(DATASET_FILES)) {
+    if (!existsSync(join(ROOT, path))) {
+        console.error(
+            `${path} is missing — it is committed to the repo; run \`bun run datasets\` to regenerate it.`,
+        );
+        process.exit(1);
+    }
 }
 
 rmSync(DIST, { recursive: true, force: true });
@@ -80,11 +109,54 @@ for (const rel of FONT_FILES) {
     cpSync(src, join(DIST, 'fonts', rel.split('/').pop()!));
 }
 
+// ---- 2b. Consumer-domain shards -------------------------------------------
+//
+// The lists used to be inlined into main.js — 203 kB of a 224 kB bundle, so
+// every visitor downloaded 12,642 domains to test the one they typed. Sharding
+// by hash means the runtime fetches only the shard a domain falls into, and it
+// stays exact: no bloom-filter false positives telling someone their domain is
+// disposable when it is not.
+
+const shards: ConsumerShard[] = Array.from({ length: SHARD_COUNT }, () => ({ f: [], d: [] }));
+const datasetCounts: Record<DatasetKind, number> = { free: 0, disposable: 0 };
+
+for (const kind of Object.keys(DATASET_FILES) as DatasetKind[]) {
+    const domains = parseDatasetText(readFileSync(join(ROOT, DATASET_FILES[kind]), 'utf8'));
+    datasetCounts[kind] = domains.length;
+    const key = kind === 'free' ? 'f' : 'd';
+    for (const domain of domains) {
+        shards[Number.parseInt(shardIdFor(domain), 16)]![key].push(domain);
+    }
+}
+
+const SHARD_DIR = join(DIST, SHARD_BASE_PATH);
+mkdirSync(SHARD_DIR, { recursive: true });
+let shardBytes = 0;
+for (const [i, shard] of shards.entries()) {
+    const body = JSON.stringify(shard);
+    shardBytes += body.length;
+    writeFileSync(join(SHARD_DIR, `${i.toString(16).padStart(2, '0')}.json`), body);
+}
+console.log(
+    `Sharded ${datasetCounts.free + datasetCounts.disposable} consumer domains ` +
+        `(${datasetCounts.free} free, ${datasetCounts.disposable} disposable) into ${SHARD_COUNT} files, ` +
+        `${(shardBytes / SHARD_COUNT).toFixed(0)} B average`,
+);
+
 // ---- 3. Tailwind ----------------------------------------------------------
 
 console.log('Compiling Tailwind…');
 const tw = Bun.spawnSync({
-    cmd: ['bun', 'x', 'tailwindcss', '-i', CSS, '-o', join(DIST, 'styles.css'), ...(serve ? [] : ['--minify'])],
+    cmd: [
+        'bun',
+        'x',
+        'tailwindcss',
+        '-i',
+        CSS,
+        '-o',
+        join(DIST, 'styles.css'),
+        ...(serve ? [] : ['--minify']),
+    ],
     cwd: ROOT,
     stdout: 'inherit',
     stderr: 'inherit',
@@ -195,7 +267,12 @@ function providerJsonLd(p: Provider): string {
             {
                 '@type': 'BreadcrumbList',
                 itemListElement: [
-                    { '@type': 'ListItem', position: 1, name: 'Email Service Checker', item: `${SITE_ORIGIN}/` },
+                    {
+                        '@type': 'ListItem',
+                        position: 1,
+                        name: 'Email Service Checker',
+                        item: `${SITE_ORIGIN}/`,
+                    },
                     { '@type': 'ListItem', position: 2, name: p.name, item: url },
                 ],
             },
@@ -219,12 +296,17 @@ function providerJsonLd(p: Provider): string {
 }
 
 const CATEGORY_DESCRIPTION: Record<Provider['category'], string> = {
-    mailbox:   "A mailbox provider runs the inboxes where people read and send mail. Domains that point their MX records here have their email hosted directly by this service.",
-    consumer:  "Consumer mailbox services run personal email accounts. A domain whose MX records point here is using the provider's free or low-cost mailbox.",
-    gateway:   "A security gateway sits in front of the real mailbox to filter spam, phishing, and malware before mail reaches its destination. Inspection alone cannot tell you which mailbox provider sits behind it.",
-    forwarder: "A forwarder accepts mail at one address and re-sends it to another. The final mailbox is invisible from MX records alone — the forwarder is just a relay.",
-    relay:     "An inbound relay accepts mail over SMTP and hands it off to an application via API or webhook. There is no human inbox at the other end.",
-    parking:   "Domain-parking and aftermarket services publish MX records that point at black-hole servers. Mail sent to a parked domain is almost always silently discarded.",
+    mailbox:
+        'A mailbox provider runs the inboxes where people read and send mail. Domains that point their MX records here have their email hosted directly by this service.',
+    consumer:
+        "Consumer mailbox services run personal email accounts. A domain whose MX records point here is using the provider's free or low-cost mailbox.",
+    gateway:
+        'A security gateway sits in front of the real mailbox to filter spam, phishing, and malware before mail reaches its destination. Inspection alone cannot tell you which mailbox provider sits behind it.',
+    forwarder:
+        'A forwarder accepts mail at one address and re-sends it to another. The final mailbox is invisible from MX records alone — the forwarder is just a relay.',
+    relay: 'An inbound relay accepts mail over SMTP and hands it off to an application via API or webhook. There is no human inbox at the other end.',
+    parking:
+        'Domain-parking and aftermarket services publish MX records that point at black-hole servers. Mail sent to a parked domain is almost always silently discarded.',
 };
 
 function categoryArticle(c: Provider['category']): string {
@@ -233,26 +315,27 @@ function categoryArticle(c: Provider['category']): string {
 
 function describeProvider(p: Provider): string {
     const label = CATEGORY_LABEL[p.category].toLowerCase();
-    return `${p.name} is ${categoryArticle(p.category)} ${label}. Its mail servers' hostnames end in ${p.matchers.map(m => `.${m}`).join(', ')}.`;
+    return `${p.name} is ${categoryArticle(p.category)} ${label}. Its mail servers' hostnames end in ${p.matchers.map((m) => `.${m}`).join(', ')}.`;
 }
 
 function relatedProviders(p: Provider, limit = 8): Provider[] {
-    return PROVIDERS
-        .filter(o => o.category === p.category && o.name !== p.name)
-        .slice(0, limit);
+    return PROVIDERS.filter((o) => o.category === p.category && o.name !== p.name).slice(0, limit);
 }
 
 function profileSection(p: Provider): string {
     const slug = providerSlug(p);
     const related = relatedProviders(p);
     const matchersList = p.matchers
-        .map(m => `<li class="font-mono text-text">·&nbsp;&nbsp;<code class="break-all">.${escapeHtml(m)}</code></li>`)
+        .map(
+            (m) =>
+                `<li class="font-mono text-text">·&nbsp;&nbsp;<code class="break-all">.${escapeHtml(m)}</code></li>`,
+        )
         .join('');
     const relatedList = related.length
         ? `<div class="flex flex-col gap-2">
                 <p class="eyebrow">Other ${escapeHtml(CATEGORY_LABEL[p.category].toLowerCase())}s</p>
                 <ul class="flex flex-wrap gap-2">
-                    ${related.map(r => `<li><a class="btn-ghost text-xs" href="/provider/${providerSlug(r)}/">${escapeHtml(r.name)}</a></li>`).join('')}
+                    ${related.map((r) => `<li><a class="btn-ghost text-xs" href="/provider/${providerSlug(r)}/">${escapeHtml(r.name)}</a></li>`).join('')}
                 </ul>
             </div>`
         : '';
@@ -309,11 +392,13 @@ function breadcrumbHtml(items: Array<{ name: string; href?: string }>): string {
 // the FAQPage structured data in HOMEPAGE_LD. Rendered only on the homepage so
 // it is not duplicated across the per-provider pages.
 function homeContentSection(): string {
-    const faqHtml = FAQ.map(({ q, a }) => `
+    const faqHtml = FAQ.map(
+        ({ q, a }) => `
                 <div class="flex flex-col gap-1.5">
                     <h3 class="text-text font-semibold text-[1.05rem]">${escapeHtml(q)}</h3>
                     <p class="text-subtext-1 text-[0.95rem]">${escapeHtml(a)}</p>
-                </div>`).join('');
+                </div>`,
+    ).join('');
 
     return `
         <section class="card p-6 sm:p-8 flex flex-col gap-5">
@@ -340,20 +425,25 @@ function homeContentSection(): string {
 
 // ---- 5. Emit homepage -----------------------------------------------------
 
-writeFileSync(join(DIST, 'index.html'), render({
-    TITLE: "Email Service Checker — Check Any Domain's Email Provider",
-    DESCRIPTION: "Check any domain's email provider in seconds. Find out who runs the email — Google Workspace, Microsoft 365, Proton, Apple, Yahoo, Fastmail, Zoho, and 160+ others — straight from public MX records.",
-    CANONICAL: `${SITE_ORIGIN}/`,
-    OG_TITLE: "Email Service Checker — Check Any Domain's Email Provider",
-    OG_DESCRIPTION: "Type a domain or email address and we'll check which service is running its email.",
-    JSON_LD: HOMEPAGE_LD,
-    BREADCRUMBS: '',
-    HERO_EYEBROW: 'Email provider checker',
-    HERO_TITLE: "What's <em>actually</em> handling the mail?",
-    HERO_LEDE: "Type a domain or email address to find out who your email provider is. We'll check which service runs its mail — Google, Microsoft, Proton, Apple, and 160+ others.",
-    PROFILE_SECTION: '',
-    CONTENT_SECTION: homeContentSection(),
-}));
+writeFileSync(
+    join(DIST, 'index.html'),
+    render({
+        TITLE: "Email Service Checker — Check Any Domain's Email Provider",
+        DESCRIPTION:
+            "Check any domain's email provider in seconds. Find out who runs the email — Google Workspace, Microsoft 365, Proton, Apple, Yahoo, Fastmail, Zoho, and 160+ others — straight from public MX records.",
+        CANONICAL: `${SITE_ORIGIN}/`,
+        OG_TITLE: "Email Service Checker — Check Any Domain's Email Provider",
+        OG_DESCRIPTION: "Type a domain or email address and we'll check which service is running its email.",
+        JSON_LD: HOMEPAGE_LD,
+        BREADCRUMBS: '',
+        HERO_EYEBROW: 'Email provider checker',
+        HERO_TITLE: "What's <em>actually</em> handling the mail?",
+        HERO_LEDE:
+            "Type a domain or email address to find out who your email provider is. We'll check which service runs its mail — Google, Microsoft, Proton, Apple, and 160+ others.",
+        PROFILE_SECTION: '',
+        CONTENT_SECTION: homeContentSection(),
+    }),
+);
 
 // ---- 6. Emit per-provider pages ------------------------------------------
 
@@ -369,33 +459,45 @@ for (const p of PROVIDERS) {
     const dir = join(DIST, 'provider', slug);
     mkdirSync(dir, { recursive: true });
     const title = `${p.name} — ${CATEGORY_LABEL[p.category]} | Email Service Checker`;
-    writeFileSync(join(dir, 'index.html'), render({
-        TITLE: title,
-        DESCRIPTION: `${describeProvider(p)} Check whether any domain uses it.`,
-        CANONICAL: `${SITE_ORIGIN}/provider/${slug}/`,
-        OG_TITLE: `${p.name} — ${CATEGORY_LABEL[p.category]}`,
-        OG_DESCRIPTION: describeProvider(p),
-        JSON_LD: providerJsonLd(p),
-        BREADCRUMBS: breadcrumbHtml([
-            { name: 'Home', href: '/' },
-            { name: p.name },
-        ]),
-        HERO_EYEBROW: escapeHtml(CATEGORY_LABEL[p.category]),
-        HERO_TITLE: escapeHtml(p.name),
-        HERO_LEDE: `${p.name} is ${categoryArticle(p.category)} ${CATEGORY_LABEL[p.category].toLowerCase()}. Type any domain below to see if its email runs through ${p.name}.`,
-        PROFILE_SECTION: profileSection(p),
-        CONTENT_SECTION: '',
-    }));
+    writeFileSync(
+        join(dir, 'index.html'),
+        render({
+            TITLE: title,
+            DESCRIPTION: `${describeProvider(p)} Check whether any domain uses it.`,
+            CANONICAL: `${SITE_ORIGIN}/provider/${slug}/`,
+            OG_TITLE: `${p.name} — ${CATEGORY_LABEL[p.category]}`,
+            OG_DESCRIPTION: describeProvider(p),
+            JSON_LD: providerJsonLd(p),
+            BREADCRUMBS: breadcrumbHtml([{ name: 'Home', href: '/' }, { name: p.name }]),
+            HERO_EYEBROW: escapeHtml(CATEGORY_LABEL[p.category]),
+            HERO_TITLE: escapeHtml(p.name),
+            HERO_LEDE: `${p.name} is ${categoryArticle(p.category)} ${CATEGORY_LABEL[p.category].toLowerCase()}. Type any domain below to see if its email runs through ${p.name}.`,
+            PROFILE_SECTION: profileSection(p),
+            CONTENT_SECTION: '',
+        }),
+    );
 }
 
 // ---- 7. Sitemap + robots --------------------------------------------------
 
+// Provider pages are generated wholesale from src/providers.ts and the shared
+// template, so their content changes when one of those is committed. The
+// homepage additionally carries the FAQ, which lives in this script.
+const PROVIDERS_MODIFIED = gitLastModified('src/providers.ts', 'index.html', 'src/styles.css');
+const HOMEPAGE_MODIFIED = gitLastModified(
+    'src/providers.ts',
+    'index.html',
+    'src/styles.css',
+    'scripts/build.ts',
+);
+
 const sitemapUrls = [
-    { loc: `${SITE_ORIGIN}/`,                 priority: '1.0', change: 'weekly' },
-    ...PROVIDERS.map(p => ({
+    { loc: `${SITE_ORIGIN}/`, priority: '1.0', change: 'weekly', lastmod: HOMEPAGE_MODIFIED },
+    ...PROVIDERS.map((p) => ({
         loc: `${SITE_ORIGIN}/provider/${providerSlug(p)}/`,
         priority: '0.7',
         change: 'monthly',
+        lastmod: PROVIDERS_MODIFIED,
     })),
 ];
 
@@ -403,12 +505,16 @@ writeFileSync(
     join(DIST, 'sitemap.xml'),
     `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${sitemapUrls.map(u => `    <url>
+${sitemapUrls
+    .map(
+        (u) => `    <url>
         <loc>${u.loc}</loc>
-        <lastmod>${TODAY}</lastmod>
+        <lastmod>${u.lastmod}</lastmod>
         <changefreq>${u.change}</changefreq>
         <priority>${u.priority}</priority>
-    </url>`).join('\n')}
+    </url>`,
+    )
+    .join('\n')}
 </urlset>
 `,
 );
@@ -422,11 +528,54 @@ Sitemap: ${SITE_ORIGIN}/sitemap.xml
 `,
 );
 
+// llms.txt — https://llmstxt.org/. Generated from the same PROVIDERS array as
+// the pages and the sitemap, so it cannot claim a provider the site does not
+// actually have a page for.
+const providersByCategory = new Map<Provider['category'], Provider[]>();
+for (const p of PROVIDERS) {
+    const list = providersByCategory.get(p.category) ?? [];
+    list.push(p);
+    providersByCategory.set(p.category, list);
+}
+
+writeFileSync(
+    join(DIST, 'llms.txt'),
+    `# Email Service Checker
+
+> Identifies which email provider, security gateway, or forwarder handles a
+> domain's mail by reading its public MX records. No sign-in, no data stored —
+> the lookup runs in the browser against public DNS.
+
+Enter any domain or email address and the checker resolves its MX records and
+matches them against ${PROVIDERS.length} known services. It also flags domains that appear in the
+open free-mailbox (${datasetCounts.free.toLocaleString('en-US')} domains) and disposable-mailbox
+(${datasetCounts.disposable.toLocaleString('en-US')} domains) datasets.
+
+## Pages
+
+- [Home — check any domain](${SITE_ORIGIN}/): the checker itself, plus answers to common questions about finding a domain's email provider.
+${[...providersByCategory.entries()]
+    .map(
+        ([category, list]) => `
+## ${CATEGORY_LABEL[category]} (${list.length})
+
+${CATEGORY_DESCRIPTION[category]}
+
+${list.map((p) => `- [${p.name}](${SITE_ORIGIN}/provider/${providerSlug(p)}/): how to tell whether a domain's mail runs through ${p.name}, and the MX hostnames that identify it.`).join('\n')}`,
+    )
+    .join('\n')}
+`,
+);
+
 // ---- 8. Stats + dev server ------------------------------------------------
 
 const total = readdirSync(DIST, { recursive: true })
-    .map(f => {
-        try { return statSync(join(DIST, f as string)).size; } catch { return 0; }
+    .map((f) => {
+        try {
+            return statSync(join(DIST, f as string)).size;
+        } catch {
+            return 0;
+        }
     })
     .reduce((a, b) => a + b, 0);
 
