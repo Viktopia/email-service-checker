@@ -27,21 +27,37 @@ updates:
     groups:
       # tailwindcss and @tailwindcss/cli are pinned to the same version and
       # have to move together — bumping one alone can break the build. This
-      # grouping is for correctness, not just to reduce PR volume.
+      # grouping is for correctness, not just to reduce PR volume, so it
+      # deliberately has NO update-types filter: a major has to keep the pair
+      # together too.
       tailwind:
         patterns:
           - "tailwindcss"
           - "@tailwindcss/*"
 
-      # The three variable fonts are independent of everything else and change
-      # rarely; one PR for the set is easier to review than three.
+      # Everything below is grouped only to reduce review volume, so each is
+      # restricted to minor and patch. Majors then arrive as their own PRs.
+      #
+      # The first run of this config showed why that matters: it put a
+      # TypeScript 5 -> 7 major in the same PR as a routine Biome minor, so the
+      # safe half could not be merged without also taking the compiler rewrite.
+      # Grouping should never force two unrelated risk levels into one decision.
+
+      # The three variable fonts change rarely and are independent of
+      # everything else; one PR for the set is easier to review than three.
       fonts:
         patterns:
           - "@fontsource-variable/*"
+        update-types:
+          - "minor"
+          - "patch"
 
-      # Biome, TypeScript and the Bun types. Build-time only.
+      # Biome, TypeScript and the Bun types. Build-time only, never shipped.
       dev-tooling:
         dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -57,6 +73,15 @@ updates:
     commit-message:
       prefix: "chore(ci)"
     groups:
+      # Minor and patch only, for the same reason as above — and with an extra
+      # one specific to Pages. The configure-pages / upload-pages-artifact /
+      # deploy-pages chain is only exercised on a push to master, because those
+      # steps are skipped for pull requests. A green check on a PR that bumps
+      # them therefore proves nothing about the deploy, so each major deserves
+      # its own PR and its own look at the release notes.
       actions:
         patterns:
           - "*"
+        update-types:
+          - "minor"
+          - "patch"
