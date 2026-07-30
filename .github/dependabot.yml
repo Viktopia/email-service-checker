@@ -1,0 +1,62 @@
+---
+# Dependabot configuration.
+#
+# Two ecosystems apply:
+#
+#   bun             package.json and bun.lock. This is a distinct ecosystem
+#                   from "npm" — npm cannot read bun.lock, so configuring npm
+#                   here would silently do nothing. The text-format lockfile in
+#                   this repo satisfies the Bun >= 1.1.39 requirement.
+#   github-actions  the actions used by .github/workflows/deploy.yml.
+version: 2
+
+updates:
+  - package-ecosystem: "bun"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+    commit-message:
+      prefix: "chore(deps)"
+      prefix-development: "chore(dev-deps)"
+    groups:
+      # tailwindcss and @tailwindcss/cli are pinned to the same version and
+      # have to move together — bumping one alone can break the build. This
+      # grouping is for correctness, not just to reduce PR volume.
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
+
+      # The three variable fonts are independent of everything else and change
+      # rarely; one PR for the set is easier to review than three.
+      fonts:
+        patterns:
+          - "@fontsource-variable/*"
+
+      # Biome, TypeScript and the Bun types. Build-time only.
+      dev-tooling:
+        dependency-type: "development"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "06:00"
+      timezone: "Europe/London"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "github-actions"
+    commit-message:
+      prefix: "chore(ci)"
+    groups:
+      actions:
+        patterns:
+          - "*"
