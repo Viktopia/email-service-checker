@@ -328,7 +328,7 @@ function profileSection(p: Provider): string {
     const matchersList = p.matchers
         .map(
             (m) =>
-                `<li class="font-mono text-text">·&nbsp;&nbsp;<code class="break-all">.${escapeHtml(m)}</code></li>`,
+                `<li class="font-mono text-ink">·&nbsp;&nbsp;<code class="break-all">.${escapeHtml(m)}</code></li>`,
         )
         .join('');
     const relatedList = related.length
@@ -350,11 +350,11 @@ function profileSection(p: Provider): string {
                 <span class="cat-badge cat-${p.category}">${escapeHtml(CATEGORY_LABEL[p.category])}</span>
             </div>
 
-            <p class="text-subtext-1" itemprop="description">${escapeHtml(describeProvider(p))}</p>
+            <p class="text-ink-muted" itemprop="description">${escapeHtml(describeProvider(p))}</p>
 
             <div class="flex flex-col gap-2">
                 <p class="eyebrow">What is ${categoryArticle(p.category)} ${escapeHtml(CATEGORY_LABEL[p.category].toLowerCase())}?</p>
-                <p class="text-subtext-1 text-[0.95rem]">${escapeHtml(CATEGORY_DESCRIPTION[p.category])}</p>
+                <p class="text-ink-muted text-[0.95rem]">${escapeHtml(CATEGORY_DESCRIPTION[p.category])}</p>
             </div>
 
             <div class="flex flex-col gap-2">
@@ -366,7 +366,7 @@ function profileSection(p: Provider): string {
 
             ${relatedList}
 
-            <p class="text-sm text-subtext-0 pt-4 border-t border-crust">
+            <p class="text-sm text-ink-muted pt-4 border-t border-crust">
                 Want to inspect a different domain? Use the form above, or <a href="/">go back to the homepage</a>.
             </p>
         </section>`;
@@ -377,12 +377,12 @@ function breadcrumbHtml(items: Array<{ name: string; href?: string }>): string {
         const isLast = i === items.length - 1;
         const inner = isLast
             ? `<span aria-current="page">${escapeHtml(it.name)}</span>`
-            : `<a href="${escapeHtml(it.href ?? '/')}" class="hover:text-text">${escapeHtml(it.name)}</a>`;
+            : `<a href="${escapeHtml(it.href ?? '/')}" class="hover:text-ink">${escapeHtml(it.name)}</a>`;
         return `<li>${inner}</li>`;
     });
     return `<nav aria-label="Breadcrumb" class="w-full">
-        <ol class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-subtext-0 text-xs">
-            ${parts.join('<li aria-hidden="true" class="text-surface-1">/</li>')}
+        <ol class="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-ink-muted text-xs">
+            ${parts.join('<li aria-hidden="true" class="text-ink-muted">/</li>')}
         </ol>
     </nav>`;
 }
@@ -395,8 +395,8 @@ function homeContentSection(): string {
     const faqHtml = FAQ.map(
         ({ q, a }) => `
                 <div class="flex flex-col gap-1.5">
-                    <h3 class="text-text font-semibold text-[1.05rem]">${escapeHtml(q)}</h3>
-                    <p class="text-subtext-1 text-[0.95rem]">${escapeHtml(a)}</p>
+                    <h3 class="text-ink font-semibold text-[1.05rem]">${escapeHtml(q)}</h3>
+                    <p class="text-ink-muted text-[0.95rem]">${escapeHtml(a)}</p>
                 </div>`,
     ).join('');
 
@@ -406,8 +406,8 @@ function homeContentSection(): string {
                 <p class="eyebrow">Guide</p>
                 <h2 class="display-name">How to find out who your email provider is</h2>
             </div>
-            <p class="text-subtext-1">Every domain that can receive email advertises its mail servers in public DNS through <strong>MX (Mail Exchange) records</strong>. Reading those records tells you which email service provider a domain uses — no login or password required. Here is how to check it:</p>
-            <ol class="flex flex-col gap-3 text-subtext-1 text-[0.95rem] list-decimal pl-5 marker:text-overlay-1">
+            <p class="text-ink-muted">Every domain that can receive email advertises its mail servers in public DNS through <strong>MX (Mail Exchange) records</strong>. Reading those records tells you which email service provider a domain uses — no login or password required. Here is how to check it:</p>
+            <ol class="flex flex-col gap-3 text-ink-muted text-[0.95rem] list-decimal pl-5 marker:text-ink-muted">
                 <li>Take the domain you want to look up — for an email address, that is everything after the <code>@</code>.</li>
                 <li>Enter it in the checker at the top of this page and press Check.</li>
                 <li>The tool resolves the domain's MX records over DNS and matches them against 160+ known providers.</li>

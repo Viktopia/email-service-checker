@@ -26,11 +26,11 @@ Plus two open datasets, committed under `data/`:
 
 - **Bun** — package manager, bundler, test runner, dev server.
 - **TypeScript** in strict mode (`tsc --noEmit` runs in CI).
-- **Tailwind CSS v4** — design tokens in an `@theme` block in
-  `src/styles.css` (Catppuccin Latte), components in `@layer components`,
-  animation in CSS. Bricolage Grotesque, Onest and JetBrains Mono are
-  self-hosted via `@fontsource-variable` packages and copied into
-  `dist/fonts/` at build time. No CDN font traffic.
+- **Tailwind CSS v4** — tokens in an `@theme` block in `src/styles.css`,
+  components in `@layer components`, animation in CSS. Light and dark
+  schemes (Catppuccin Latte and Mocha). Bricolage Grotesque, Onest and
+  JetBrains Mono are self-hosted via `@fontsource-variable` packages and
+  copied into `dist/fonts/` at build time. No CDN font traffic.
 - **Biome** for lint and formatting.
 - **DNS over HTTPS** via `dns.google` for MX lookups.
 - **GitHub Pages** for hosting, deployed by `.github/workflows/deploy.yml`.
@@ -57,6 +57,32 @@ is reachable in the shard the runtime will actually request, that no page
 lost its JSON-LD or shipped an unsubstituted `{{PLACEHOLDER}}`, that every
 sitemap URL has a page behind it, and that the domain lists have not crept
 back into the bundle.
+
+### Colour tokens
+
+`src/styles.css` has two layers, and the distinction matters:
+
+- The **palette** is Catppuccin as published — Latte, with Mocha overriding
+  it under `prefers-color-scheme: dark`. It is a palette, not a set of
+  decisions.
+- The **semantic tokens** (`--color-ink`, `--color-ink-muted`,
+  `--color-page`, `--color-card`, `--color-field`, `--color-hairline`,
+  `--color-accent`, `--color-accent-text`, `--color-accent-ink`) name what a
+  colour is *for*. Components and markup use these, never the palette.
+
+Two things depend on that discipline. Catppuccin's `overlay-*` and
+`subtext-0` are chrome colours, and using them for text put nine styles
+below WCAG AA (`subtext-0` measures 4.22:1, `overlay-1` 2.73:1, against a
+4.5:1 requirement) — routing text through `--color-ink*` fixes them
+together rather than one call site at a time. And surfaces used to be
+computed by mixing toward a literal `white`, which cannot invert; naming
+them means the dark scheme is a remap of these tokens and nothing else.
+
+Note `--color-accent` versus `--color-accent-text`: Latte blue is fine as a
+button fill but measures 4.34:1 as link text, so the two roles are separate
+tokens. `tests/tokens.test.ts` enforces all of this — no palette-chrome text
+utilities in markup, no hardcoded hex outside the token block, no surface
+mixed toward `white`.
 
 ### The consumer datasets
 

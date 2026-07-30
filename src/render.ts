@@ -32,9 +32,37 @@ function categoryBadge(category: Finding['provider']['category']): HTMLElement {
 }
 
 function mxTable(mxRecords: readonly MxRecord[]): HTMLElement {
-    const wrap = el('div', { class: 'report-row flex flex-col gap-3' });
-    wrap.append(el('p', { class: 'eyebrow' }, `Evidence — ${mxRecords.length} MX record${mxRecords.length === 1 ? '' : 's'}`));
+    const wrap = el('div', { class: 'report-row flex flex-col' });
     const table = el('table', { class: 'mx-table' });
+
+    // A <caption> rather than a sibling <p>: it names this table specifically,
+    // which is what a screen reader reads when it enters the table, and what
+    // "Evidence — 5 MX records" was already doing informally.
+    table.append(
+        el(
+            'caption',
+            { class: 'eyebrow' },
+            `Evidence — ${mxRecords.length} MX record${mxRecords.length === 1 ? '' : 's'}`,
+        ),
+    );
+
+    // The table had no headers at all, so column one was a bare number with
+    // nothing saying it was a priority — unclear for everyone, and unnavigable
+    // with a screen reader. Visible and quiet beats visually-hidden here: the
+    // labels are information sighted users were missing too.
+    table.append(
+        el(
+            'thead',
+            {},
+            el(
+                'tr',
+                {},
+                el('th', { scope: 'col', class: 'mx-prio' }, 'Priority'),
+                el('th', { scope: 'col' }, 'Host'),
+            ),
+        ),
+    );
+
     const tbody = el('tbody');
     for (const mx of mxRecords) {
         tbody.append(
@@ -143,9 +171,9 @@ function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput):
         el('div', { class: 'report-row flex items-center justify-between gap-3' },
             el('div', { class: 'flex flex-col min-w-0' },
                 el('span', { class: 'eyebrow mb-1' }, 'Subject'),
-                el('span', { class: 'font-mono text-[0.95rem] text-text break-all' }, domain),
+                el('span', { class: 'font-mono text-[0.95rem] text-ink break-all' }, domain),
             ),
-            el('span', { class: 'eyebrow text-overlay-1' }, `N° ${reportNumber(domain)}`),
+            el('span', { class: 'eyebrow text-ink-muted' }, `N° ${reportNumber(domain)}`),
         ),
     );
 
@@ -205,9 +233,9 @@ export function renderLoading(target: HTMLElement, domain: string): void {
     target.replaceChildren(
         el('section', { class: CARD },
             el('p', { class: 'eyebrow mb-2' }, 'Querying DNS'),
-            el('h3', { class: 'display-name text-overlay-1' },
+            el('h3', { class: 'display-name text-ink-muted' },
                 'Resolving ',
-                el('span', { class: 'font-mono text-text' }, domain),
+                el('span', { class: 'font-mono text-ink' }, domain),
                 el('span', { class: 'cursor' }, '_'),
             ),
         ),
