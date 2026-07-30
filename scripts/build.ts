@@ -223,26 +223,31 @@ const FAQ: ReadonlyArray<{ q: string; a: string }> = [
     },
 ];
 
+// Emitted on every page, not just the homepage: provider pages carry
+// `isPartOf: { '@id': '…/#website' }`, and that reference used to dangle
+// because the node it points at only existed on the homepage.
+const WEBSITE_LD = {
+    '@type': 'WebSite',
+    '@id': `${SITE_ORIGIN}/#website`,
+    url: SITE_ORIGIN,
+    name: 'Email Service Checker',
+    publisher: { '@id': `${SITE_ORIGIN}/#publisher` },
+    inLanguage: 'en',
+    potentialAction: {
+        '@type': 'SearchAction',
+        target: {
+            '@type': 'EntryPoint',
+            urlTemplate: `${SITE_ORIGIN}/?domain={domain}`,
+        },
+        'query-input': 'required name=domain',
+    },
+};
+
 const HOMEPAGE_LD = JSON.stringify({
     '@context': 'https://schema.org',
     '@graph': [
         PUBLISHER_LD,
-        {
-            '@type': 'WebSite',
-            '@id': `${SITE_ORIGIN}/#website`,
-            url: SITE_ORIGIN,
-            name: 'Email Service Checker',
-            publisher: { '@id': `${SITE_ORIGIN}/#publisher` },
-            inLanguage: 'en',
-            potentialAction: {
-                '@type': 'SearchAction',
-                target: {
-                    '@type': 'EntryPoint',
-                    urlTemplate: `${SITE_ORIGIN}/?domain={domain}`,
-                },
-                'query-input': 'required name=domain',
-            },
-        },
+        WEBSITE_LD,
         {
             '@type': 'FAQPage',
             '@id': `${SITE_ORIGIN}/#faq`,
@@ -264,8 +269,10 @@ function providerJsonLd(p: Provider): string {
         '@context': 'https://schema.org',
         '@graph': [
             PUBLISHER_LD,
+            WEBSITE_LD,
             {
                 '@type': 'BreadcrumbList',
+                '@id': `${url}#breadcrumb`,
                 itemListElement: [
                     {
                         '@type': 'ListItem',
@@ -284,6 +291,10 @@ function providerJsonLd(p: Provider): string {
                 description: describeProvider(p),
                 inLanguage: 'en',
                 isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+                // WebPage.breadcrumb is the property that ties the two
+                // together; without it the BreadcrumbList sat in the graph
+                // unattached to the page it describes.
+                breadcrumb: { '@id': `${url}#breadcrumb` },
                 publisher: { '@id': `${SITE_ORIGIN}/#publisher` },
                 about: {
                     '@type': 'Organization',
