@@ -69,6 +69,18 @@
                 </button>
             </form>
 
+            <!--
+                The live region has to exist at page load: render.ts used to set
+                aria-live on the report section it injected, which registers the
+                region and its content in the same tick — something screen
+                readers generally do not announce at all.
+
+                It is a separate element from #result, and carries a one-line
+                summary rather than the report itself, so a lookup announces
+                "Google Workspace — mailbox provider, 5 MX records" instead of
+                reading out every hostname in the evidence table.
+            -->
+            <p id="result-status" class="sr-only" role="status" aria-live="polite"></p>
             <div id="result"></div>
 
             {{PROFILE_SECTION}}

@@ -106,8 +106,38 @@ export function renderReport(target: HTMLElement, input: RenderInput): void {
     target.replaceChildren(buildReport(input));
 }
 
+/**
+ * One line naming the outcome, for the live region in index.html.
+ *
+ * Derived from the same RenderInput the card is built from, so it cannot
+ * describe something different from what is on screen. It exists because the
+ * card itself is the wrong thing to announce: marking it atomic would read out
+ * every hostname in the evidence table on every lookup.
+ */
+export function reportSummary({ domain, findings, mxRecords, consumerHit }: RenderInput): string {
+    const parts: string[] = [];
+
+    if (findings.length > 0) {
+        parts.push(findings.map(f => `${f.provider.name} — ${CATEGORY_LABEL[f.provider.category]}`).join('; '));
+    } else if (mxRecords.length === 0) {
+        parts.push(`${domain} publishes no MX records, so it does not receive email`);
+    } else {
+        parts.push('MX records found, but no known provider matched');
+    }
+
+    if (consumerHit) {
+        parts.push(consumerHit.kind === 'disposable' ? 'a disposable mailbox service' : 'a free consumer mailbox');
+    }
+
+    if (mxRecords.length > 0) {
+        parts.push(`${mxRecords.length} MX record${mxRecords.length === 1 ? '' : 's'}`);
+    }
+
+    return `Result for ${domain}: ${parts.join(', ')}.`;
+}
+
 function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput): HTMLElement {
-    const report = el('section', { class: CARD, 'aria-live': 'polite' });
+    const report = el('section', { class: CARD });
 
     report.append(
         el('div', { class: 'report-row flex items-center justify-between gap-3' },
@@ -164,7 +194,7 @@ function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput):
 
 export function renderError(target: HTMLElement, message: string): void {
     target.replaceChildren(
-        el('section', { class: `${CARD} border-red`, 'aria-live': 'polite' },
+        el('section', { class: `${CARD} border-red` },
             el('p', { class: 'eyebrow text-red mb-2' }, 'Lookup failed'),
             el('h3', { class: 'display-name' }, message),
         ),
@@ -173,7 +203,7 @@ export function renderError(target: HTMLElement, message: string): void {
 
 export function renderLoading(target: HTMLElement, domain: string): void {
     target.replaceChildren(
-        el('section', { class: CARD, 'aria-live': 'polite' },
+        el('section', { class: CARD },
             el('p', { class: 'eyebrow mb-2' }, 'Querying DNS'),
             el('h3', { class: 'display-name text-overlay-1' },
                 'Resolving ',
