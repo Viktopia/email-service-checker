@@ -1,6 +1,6 @@
 import { lookupMx, LookupError } from './lookup.ts';
 import { identifyProviders, normalizeDomain, isValidDomain, consumerLookup } from './identify.ts';
-import { renderReport, renderError, renderLoading, clearReport } from './render.ts';
+import { renderReport, renderError, renderLoading, clearReport, reportSummary } from './render.ts';
 
 declare global {
     interface Window {
@@ -14,6 +14,14 @@ const input = document.getElementById('domain') as HTMLInputElement;
 const button = document.getElementById('check-button') as HTMLButtonElement;
 const buttonLabel = document.getElementById('check-button-label') as HTMLSpanElement;
 const result = document.getElementById('result') as HTMLElement;
+// Present from page load so screen readers register it as a live region before
+// anything lands in it. See the comment in index.html.
+const status = document.getElementById('result-status') as HTMLElement;
+
+/** Puts one line in the live region, so a lookup is announced without the card being read out. */
+function announce(message: string): void {
+    status.textContent = message;
+}
 
 function setBusy(busy: boolean): void {
     button.disabled = busy;
@@ -30,13 +38,16 @@ function syncUrl(domain: string): void {
 async function runCheck(raw: string): Promise<void> {
     const domain = normalizeDomain(raw);
     if (!domain || !isValidDomain(domain)) {
-        renderError(result, 'Please enter a valid domain or email address.');
+        const message = 'Please enter a valid domain or email address.';
+        renderError(result, message);
+        announce(message);
         return;
     }
     input.value = domain;
     syncUrl(domain);
     setBusy(true);
     renderLoading(result, domain);
+    announce(`Looking up ${domain}…`);
 
     try {
         // Both are network calls and neither depends on the other, so they
@@ -44,7 +55,9 @@ async function runCheck(raw: string): Promise<void> {
         const [mxRecords, consumerHit] = await Promise.all([lookupMx(domain), consumerLookup(domain)]);
         const findings = identifyProviders(mxRecords);
 
-        renderReport(result, { domain, findings, mxRecords, consumerHit });
+        const report = { domain, findings, mxRecords, consumerHit };
+        renderReport(result, report);
+        announce(reportSummary(report));
 
         window.gtag?.('event', 'check_email_service', {
             domain,
@@ -62,6 +75,7 @@ async function runCheck(raw: string): Promise<void> {
                 ? 'DNS lookup failed. Please check the domain and try again.'
                 : 'Something went wrong. Please try again.';
         renderError(result, msg);
+        announce(msg);
         console.error(err);
     } finally {
         setBusy(false);
@@ -74,7 +88,10 @@ form.addEventListener('submit', (e) => {
 });
 
 input.addEventListener('input', () => {
-    if (!input.value.trim()) clearReport(result);
+    if (!input.value.trim()) {
+        clearReport(result);
+        announce('');
+    }
 });
 
 const initialDomain = new URLSearchParams(window.location.search).get('domain');
