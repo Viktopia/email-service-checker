@@ -51,32 +51,34 @@ async function fetchDomains(url: string): Promise<string[]> {
         const text = await res.text();
         return text
             .split('\n')
-            .map(l => l.trim().toLowerCase())
-            .filter(l => l && !l.startsWith('#') && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(l));
+            .map((l) => l.trim().toLowerCase())
+            .filter((l) => l && !l.startsWith('#') && /^[a-z0-9.-]+\.[a-z]{2,}$/.test(l));
     } catch {
         return [];
     }
 }
 
-interface DnsAnswer { type: number; data: string }
-interface DnsResponse { Answer?: DnsAnswer[] }
+interface DnsAnswer {
+    type: number;
+    data: string;
+}
+interface DnsResponse {
+    Answer?: DnsAnswer[];
+}
 
 async function lookupMx(domain: string): Promise<string[] | null> {
     try {
-        const res = await fetch(
-            `https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=MX`,
-            { headers: { Accept: 'application/dns-json' }, signal: AbortSignal.timeout(5000) },
-        );
+        const res = await fetch(`https://dns.google/resolve?name=${encodeURIComponent(domain)}&type=MX`, {
+            headers: { Accept: 'application/dns-json' },
+            signal: AbortSignal.timeout(5000),
+        });
         if (!res.ok) return null;
         const data = (await res.json()) as DnsResponse;
         if (!data.Answer) return [];
-        return data.Answer
-            .filter(a => a.type === 15)
-            .map(a => {
+        return data.Answer.filter((a) => a.type === 15)
+            .map((a) => {
                 const parts = a.data.trim().split(/\s+/);
-                return (parts.length > 1 ? parts[1]! : parts[0]!)
-                    .replace(/\.$/, '')
-                    .toLowerCase();
+                return (parts.length > 1 ? parts[1]! : parts[0]!).replace(/\.$/, '').toLowerCase();
             })
             .filter(Boolean);
     } catch {
@@ -101,10 +103,23 @@ function matchedByExisting(host: string): string | null {
 // "Registered" domain — naive last-two-labels, with a small whitelist of
 // two-part TLDs we care about (.co.uk, .com.au, .co.za, .com.cn, …).
 const TWO_PART_TLDS = new Set([
-    'co.uk', 'org.uk', 'gov.uk', 'ac.uk',
-    'com.au', 'net.au', 'org.au',
-    'co.za', 'co.nz', 'com.br', 'com.cn', 'com.mx', 'com.ar',
-    'co.jp', 'or.jp', 'co.kr', 'or.kr',
+    'co.uk',
+    'org.uk',
+    'gov.uk',
+    'ac.uk',
+    'com.au',
+    'net.au',
+    'org.au',
+    'co.za',
+    'co.nz',
+    'com.br',
+    'com.cn',
+    'com.mx',
+    'com.ar',
+    'co.jp',
+    'or.jp',
+    'co.kr',
+    'or.kr',
 ]);
 
 function registeredDomain(host: string): string {
@@ -139,14 +154,14 @@ async function main() {
     const cache: Record<string, string[] | null> = existsSync(CACHE_PATH)
         ? JSON.parse(readFileSync(CACHE_PATH, 'utf8'))
         : {};
-    const todo = sample.filter(d => !(d in cache));
+    const todo = sample.filter((d) => !(d in cache));
     console.error(`Already cached: ${sample.length - todo.length}, to fetch: ${todo.length}`);
 
     const BATCH = 40;
     let done = 0;
     for (let i = 0; i < todo.length; i += BATCH) {
         const batch = todo.slice(i, i + BATCH);
-        const results = await Promise.all(batch.map(async d => [d, await lookupMx(d)] as const));
+        const results = await Promise.all(batch.map(async (d) => [d, await lookupMx(d)] as const));
         for (const [d, mx] of results) cache[d] = mx;
         done += batch.length;
         if (done % 400 === 0 || done === todo.length) {
@@ -178,7 +193,7 @@ async function main() {
     // Filter out clusters already covered by any PROVIDER
     const unknown: Array<{ reg: string; c: Cluster }> = [];
     for (const [reg, c] of clusters) {
-        const known = [...c.allHosts].some(h => matchedByExisting(h));
+        const known = [...c.allHosts].some((h) => matchedByExisting(h));
         if (!known) unknown.push({ reg, c });
     }
     unknown.sort((a, b) => b.c.count - a.c.count);
@@ -187,7 +202,9 @@ async function main() {
     console.log('# Top unknown MX clusters (registered-domain → input-domains-covered)');
     console.log('# count | registered_domain | sample MX hosts | sample input domains');
     for (const { reg, c } of unknown.slice(0, args.top)) {
-        console.log(`${String(c.count).padStart(6)}  ${reg.padEnd(40)}  ${c.sampleHosts.slice(0, 2).join(',')}  ⇐  ${c.sampleDomains.slice(0, 3).join(',')}`);
+        console.log(
+            `${String(c.count).padStart(6)}  ${reg.padEnd(40)}  ${c.sampleHosts.slice(0, 2).join(',')}  ⇐  ${c.sampleDomains.slice(0, 3).join(',')}`,
+        );
     }
     console.error(`\nTotal clusters: ${clusters.size}, unknown: ${unknown.length}`);
 }

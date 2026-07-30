@@ -13,9 +13,9 @@
  *   - a sitemap URL with no corresponding generated page
  */
 
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { SHARD_BASE_PATH, SHARD_COUNT, type ConsumerShard, shardIdFor } from '../src/consumer-shards.ts';
+import { type ConsumerShard, SHARD_BASE_PATH, SHARD_COUNT, shardIdFor } from '../src/consumer-shards.ts';
 import { DATASET_FILES, type DatasetKind, parseDatasetText } from '../src/datasets.ts';
 import { PROVIDERS, providerSlug } from '../src/providers.ts';
 

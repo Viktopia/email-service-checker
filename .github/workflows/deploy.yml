@@ -34,8 +34,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Lint (Biome)
-        run: bun lint
+      # `check` is lint + formatting + import order. It ran only `lint` before,
+      # so the whole tree had drifted out of format and `bun run check` failed
+      # for any contributor out of the box.
+      - name: Lint and formatting (Biome)
+        run: bun run check
 
       - name: Type-check
         run: bun run typecheck

@@ -1,10 +1,4 @@
-export type ProviderCategory =
-    | 'mailbox'
-    | 'consumer'
-    | 'gateway'
-    | 'forwarder'
-    | 'relay'
-    | 'parking';
+export type ProviderCategory = 'mailbox' | 'consumer' | 'gateway' | 'forwarder' | 'relay' | 'parking';
 
 export interface Provider {
     name: string;

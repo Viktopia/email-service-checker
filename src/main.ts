@@ -1,6 +1,6 @@
-import { lookupMx, LookupError } from './lookup.ts';
-import { identifyProviders, normalizeDomain, isValidDomain, consumerLookup } from './identify.ts';
-import { renderReport, renderError, renderLoading, clearReport, reportSummary } from './render.ts';
+import { consumerLookup, identifyProviders, isValidDomain, normalizeDomain } from './identify.ts';
+import { LookupError, lookupMx } from './lookup.ts';
+import { clearReport, renderError, renderLoading, renderReport, reportSummary } from './render.ts';
 
 declare global {
     interface Window {
