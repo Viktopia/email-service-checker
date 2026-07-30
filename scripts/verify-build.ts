@@ -101,6 +101,38 @@ for (const page of pages) {
     try {
         const parsed = JSON.parse(ld[1]!);
         check(`${page} JSON-LD declares a context`, '@context' in parsed);
+
+        // Every node needs an @id, and every {"@id": …} reference has to point
+        // at a node defined on the same page. A reference to a node that only
+        // exists elsewhere is a dangling edge: the graph reads as incomplete.
+        const graph: Record<string, unknown>[] = parsed['@graph'] ?? [parsed];
+        const defined = new Set(graph.map((n) => n['@id']).filter(Boolean) as string[]);
+
+        const untyped = graph.filter((n) => !n['@id']).map((n) => String(n['@type']));
+        check(`${page} every JSON-LD node carries an @id`, untyped.length === 0, untyped.join(', '));
+
+        const referenced: string[] = [];
+        const collect = (node: unknown): void => {
+            if (Array.isArray(node)) {
+                for (const v of node) collect(v);
+            } else if (node && typeof node === 'object') {
+                const obj = node as Record<string, unknown>;
+                // A bare {"@id": …} with no other keys is a reference, not a
+                // definition.
+                if (typeof obj['@id'] === 'string' && Object.keys(obj).length === 1) {
+                    referenced.push(obj['@id']);
+                }
+                for (const v of Object.values(obj)) collect(v);
+            }
+        };
+        collect(graph);
+
+        const dangling = [...new Set(referenced)].filter((id) => !defined.has(id));
+        check(
+            `${page} JSON-LD references all resolve on the page`,
+            dangling.length === 0,
+            dangling.join(', '),
+        );
     } catch (err) {
         fail(`${page} JSON-LD is invalid: ${String(err)}`);
     }
