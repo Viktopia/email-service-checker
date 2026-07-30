@@ -21,6 +21,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Full history so the build can read each page's real last-commit
+          # date for <lastmod>. A shallow clone would fall back to the build
+          # date, which is the signal this replaced.
+          fetch-depth: 0
 
       - uses: oven-sh/setup-bun@v2
         with:
@@ -32,14 +37,20 @@ jobs:
       - name: Lint (Biome)
         run: bun lint
 
-      - name: Fetch open datasets
-        run: bun run datasets
-
       - name: Type-check
         run: bun run typecheck
 
+      - name: Test
+        run: bun test
+
+      # The consumer-domain lists are committed under ./data/, so the build
+      # needs no network access and produces the same output every time.
+      # `bun run datasets` refreshes them; see refresh-datasets.yml.
       - name: Build
         run: bun run build
+
+      - name: Verify build output
+        run: bun run verify
 
       - uses: actions/configure-pages@v5
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/master'
