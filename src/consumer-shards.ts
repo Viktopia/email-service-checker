@@ -18,10 +18,14 @@ export const SHARD_COUNT = 256;
 /** Public path the build writes shards to and the runtime fetches them from. */
 export const SHARD_BASE_PATH = '/data/consumer';
 
-/** What a shard file contains: `f` = free mailbox, `d` = disposable. */
+/**
+ * What a shard file contains: `f` = free mailbox, `d` = disposable,
+ * `a` = alias / forwarding address.
+ */
 export interface ConsumerShard {
     f: string[];
     d: string[];
+    a: string[];
 }
 
 /**

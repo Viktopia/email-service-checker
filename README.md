@@ -16,11 +16,12 @@ DNS over HTTPS. Live at <https://emailservicechecker.com>.
 | Forwarder   | Cloudflare Email Routing, SimpleLogin, addy.io, ForwardEmail.net, Pobox…  |
 | Inbound API | Amazon SES, Postmark, Mailgun, SendGrid, Mailchimp Transactional…         |
 
-Plus two open datasets, committed under `data/`:
+Plus three datasets, committed under `data/`:
 
 - `willwhite/freemail` — 4 459 free consumer mailbox domains.
 - `disposable-email-domains/disposable-email-domains` — 8 183 disposable /
   throwaway mailbox providers.
+- `data/alias-domains.txt` — 18 alias / forwarding domains, hand-curated.
 
 ## Stack
 
@@ -89,6 +90,25 @@ mixed toward `white`.
 `data/free-domains.txt` and `data/disposable-domains.txt` are **committed**,
 so a build needs no network access and is reproducible. `bun run datasets`
 refreshes them from upstream; commit the result.
+
+`data/alias-domains.txt` is the odd one out: it is **hand-curated and never
+fetched**. There is no maintained public catalogue of alias domains the way
+there is for disposable ones, and the set is small enough to keep by hand.
+`DATASET_SOURCES` has no entry for it, which is what keeps `bun run datasets`
+from touching it.
+
+An alias domain is one an alias service hands addresses out **on** — `duck.com`,
+`mozmail.com`, `privaterelay.appleid.com` — so that mail forwards to a real
+mailbox the owner keeps private. That is worth separating from the other two:
+an alias is not a throwaway that stops existing, and it is not an account
+someone logs into. Domains that route mail for a *customer's own* domain
+(ImprovMX, Cloudflare Email Routing) are a different thing again, and are
+already matched by MX under the `forwarder` category in `src/providers.ts`.
+
+The corporate domains of forwarding companies are deliberately excluded: both
+`33mail.com` and `improvmx.com` point their apex MX at Google Workspace,
+because that is where the company's own staff mail goes. Listing them would
+tell someone their perfectly ordinary mailbox was an alias.
 
 They used to be fetched during every deploy, which meant a blip at
 `raw.githubusercontent.com` could break the deploy of an unrelated change,

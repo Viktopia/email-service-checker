@@ -75,7 +75,7 @@ function loadShard(shardId: string): Promise<ConsumerShard | null> {
 }
 
 /**
- * Is this domain a known free or disposable mailbox host?
+ * Is this domain a known free, disposable or alias mailbox host?
  *
  * Resolves to null when the shard cannot be loaded. That is deliberate: the
  * consumer callout only supplements the MX findings, so a failed shard fetch
@@ -84,7 +84,11 @@ function loadShard(shardId: string): Promise<ConsumerShard | null> {
 export async function consumerLookup(domain: string): Promise<ConsumerHit | null> {
     const shard = await loadShard(shardIdFor(domain));
     if (!shard) return null;
+    // Ordered most-specific first. A domain should never appear in more than
+    // one list, but if the datasets ever disagree, saying "disposable" or
+    // "alias" is more useful than the broader "free consumer mailbox".
     if (shard.d.includes(domain)) return { kind: 'disposable', domain };
+    if (shard.a.includes(domain)) return { kind: 'alias', domain };
     if (shard.f.includes(domain)) return { kind: 'free', domain };
     return null;
 }

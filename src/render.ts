@@ -119,12 +119,31 @@ function findingBlock(finding: Finding): HTMLElement {
     return block;
 }
 
+const CONSUMER_SUMMARY: Record<ConsumerHit['kind'], string> = {
+    disposable: 'a disposable mailbox service',
+    alias: 'an alias / forwarding address',
+    free: 'a free consumer mailbox',
+};
+
+const CONSUMER_LABEL: Record<ConsumerHit['kind'], string> = {
+    disposable: 'Disposable mailbox service',
+    alias: 'Alias / forwarding address',
+    free: 'Free consumer mailbox',
+};
+
+const CONSUMER_DETAIL: Record<ConsumerHit['kind'], string> = {
+    disposable:
+        'This domain is published in the open disposable-mailbox catalogue — addresses on it are usually short-lived throwaways.',
+    // Worth distinguishing from disposable: an alias is not a throwaway. Mail
+    // reaches a real, durable mailbox behind it, and the person can retire the
+    // one address without losing the account.
+    alias: 'This domain belongs to an alias service. Addresses on it forward to a real mailbox the owner keeps private, and can be switched off individually.',
+    free: 'This domain is in the open free-mailbox catalogue. Mail sent here goes to a personal account, not a business mailbox.',
+};
+
 function consumerCallout(hit: ConsumerHit): HTMLElement {
-    const label = hit.kind === 'disposable' ? 'Disposable mailbox service' : 'Free consumer mailbox';
-    const detail =
-        hit.kind === 'disposable'
-            ? 'This domain is published in the open disposable-mailbox catalogue — addresses on it are usually short-lived throwaways.'
-            : 'This domain is in the open free-mailbox catalogue. Mail sent here goes to a personal account, not a business mailbox.';
+    const label = CONSUMER_LABEL[hit.kind];
+    const detail = CONSUMER_DETAIL[hit.kind];
     return el(
         'div',
         { class: 'finding' },
@@ -171,9 +190,7 @@ export function reportSummary({ domain, findings, mxRecords, consumerHit }: Rend
     }
 
     if (consumerHit) {
-        parts.push(
-            consumerHit.kind === 'disposable' ? 'a disposable mailbox service' : 'a free consumer mailbox',
-        );
+        parts.push(CONSUMER_SUMMARY[consumerHit.kind]);
     }
 
     if (mxRecords.length > 0) {
