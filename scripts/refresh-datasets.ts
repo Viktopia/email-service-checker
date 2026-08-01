@@ -29,8 +29,14 @@ async function fetchList(url: string): Promise<string[]> {
 
 console.log('Refreshing consumer-domain datasets from upstream…');
 
-const kinds = Object.keys(DATASET_SOURCES) as DatasetKind[];
-const lists = await Promise.all(kinds.map((k) => fetchList(DATASET_SOURCES[k])));
+// Only the kinds that declare an upstream. DATASET_SOURCES is partial because
+// data/alias-domains.txt is hand-curated, and this refresh must never rewrite
+// it: entries land there by review, not by fetch. Reading the pairs out
+// together is what keeps that a type error rather than a silent `undefined`
+// URL if a source is ever removed.
+const sources = Object.entries(DATASET_SOURCES) as [DatasetKind, string][];
+const kinds = sources.map(([kind]) => kind);
+const lists = await Promise.all(sources.map(([, url]) => fetchList(url)));
 
 let changed = false;
 

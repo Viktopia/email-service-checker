@@ -20,7 +20,7 @@ import {
 } from 'node:fs';
 import { join } from 'node:path';
 import { type ConsumerShard, SHARD_BASE_PATH, SHARD_COUNT, shardIdFor } from '../src/consumer-shards.ts';
-import { DATASET_FILES, type DatasetKind, parseDatasetText } from '../src/datasets.ts';
+import { DATASET_FILES, type DatasetKind, parseDatasetText, SHARD_KEY } from '../src/datasets.ts';
 import { CATEGORY_LABEL, PROVIDERS, providerSlug } from '../src/providers.ts';
 import type { Provider } from '../src/types.ts';
 
@@ -117,13 +117,13 @@ for (const rel of FONT_FILES) {
 // stays exact: no bloom-filter false positives telling someone their domain is
 // disposable when it is not.
 
-const shards: ConsumerShard[] = Array.from({ length: SHARD_COUNT }, () => ({ f: [], d: [] }));
-const datasetCounts: Record<DatasetKind, number> = { free: 0, disposable: 0 };
+const shards: ConsumerShard[] = Array.from({ length: SHARD_COUNT }, () => ({ f: [], d: [], a: [] }));
+const datasetCounts: Record<DatasetKind, number> = { free: 0, disposable: 0, alias: 0 };
 
 for (const kind of Object.keys(DATASET_FILES) as DatasetKind[]) {
     const domains = parseDatasetText(readFileSync(join(ROOT, DATASET_FILES[kind]), 'utf8'));
     datasetCounts[kind] = domains.length;
-    const key = kind === 'free' ? 'f' : 'd';
+    const key = SHARD_KEY[kind];
     for (const domain of domains) {
         shards[Number.parseInt(shardIdFor(domain), 16)]![key].push(domain);
     }
@@ -138,8 +138,9 @@ for (const [i, shard] of shards.entries()) {
     writeFileSync(join(SHARD_DIR, `${i.toString(16).padStart(2, '0')}.json`), body);
 }
 console.log(
-    `Sharded ${datasetCounts.free + datasetCounts.disposable} consumer domains ` +
-        `(${datasetCounts.free} free, ${datasetCounts.disposable} disposable) into ${SHARD_COUNT} files, ` +
+    `Sharded ${datasetCounts.free + datasetCounts.disposable + datasetCounts.alias} consumer domains ` +
+        `(${datasetCounts.free} free, ${datasetCounts.disposable} disposable, ${datasetCounts.alias} alias) ` +
+        `into ${SHARD_COUNT} files, ` +
         `${(shardBytes / SHARD_COUNT).toFixed(0)} B average`,
 );
 

@@ -1,0 +1,42 @@
+# Alias / forwarding domains.
+#
+# Hand-curated, unlike free-domains.txt and disposable-domains.txt, which come
+# from upstream lists. There is no maintained public catalogue of alias domains,
+# and the set is small enough to keep by hand.
+#
+# What belongs here: a domain that an alias service hands out addresses ON, so
+# that mail to it forwards to a real mailbox the owner keeps private. That is a
+# different thing from a disposable address (a throwaway that stops existing)
+# and from a free consumer mailbox (an account you log into).
+#
+# What does not belong here: the corporate domain of a forwarding company. Both
+# 33mail.com and improvmx.com were considered and rejected on that basis; their
+# apex MX points at Google Workspace, because that is where the company's own
+# staff mail goes. 33Mail's real aliases live on *.33mail.com subdomains, which
+# exact-domain matching cannot catch anyway.
+#
+# Domains that route mail for a customer's own domain (ImprovMX, Cloudflare
+# Email Routing) are already covered by the MX matchers in src/providers.ts
+# under the `forwarder` category. This list is the other half: the addresses a
+# person is actually given.
+#
+# Every entry below was verified by MX lookup before being added.
+
+8alias.com
+addy.io
+aleeas.com
+anonaddy.com
+anonaddy.me
+burnermail.io
+duck.com
+forwardemail.net
+mozmail.com
+passinbox.com
+passmail.net
+pobox.com
+privaterelay.appleid.com
+simplelogin.co
+simplelogin.com
+simplelogin.fr
+slmail.me
+spamgourmet.com

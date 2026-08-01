@@ -7,9 +7,18 @@
  * filenames or about what counts as a valid domain line.
  */
 
-export type DatasetKind = 'free' | 'disposable';
+export type DatasetKind = 'free' | 'disposable' | 'alias';
 
-export const DATASET_SOURCES: Readonly<Record<DatasetKind, string>> = {
+/**
+ * Upstream sources, for the kinds that have one.
+ *
+ * Deliberately Partial: `alias` is hand-curated. There is no maintained public
+ * list of alias domains the way there is for disposable ones, and the set is
+ * small enough (a couple of dozen) that curating it beats depending on a list
+ * nobody keeps current. refresh-datasets.ts iterates this object, so a kind
+ * with no source here is simply never fetched or overwritten.
+ */
+export const DATASET_SOURCES: Readonly<Partial<Record<DatasetKind, string>>> = {
     free: 'https://raw.githubusercontent.com/willwhite/freemail/master/data/free.txt',
     disposable:
         'https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/main/disposable_email_blocklist.conf',
@@ -19,6 +28,22 @@ export const DATASET_SOURCES: Readonly<Record<DatasetKind, string>> = {
 export const DATASET_FILES: Readonly<Record<DatasetKind, string>> = {
     free: 'data/free-domains.txt',
     disposable: 'data/disposable-domains.txt',
+    alias: 'data/alias-domains.txt',
+};
+
+/**
+ * Which key each dataset occupies in a shard file.
+ *
+ * This exists as a lookup rather than a conditional because both the build and
+ * the verifier previously derived it with `kind === 'free' ? 'f' : 'd'`, which
+ * silently sorts every kind that is not `free` into the disposable bucket.
+ * Adding a third dataset under that expression would have labelled every alias
+ * domain "disposable" in the UI, with nothing failing to say so.
+ */
+export const SHARD_KEY: Readonly<Record<DatasetKind, 'f' | 'd' | 'a'>> = {
+    free: 'f',
+    disposable: 'd',
+    alias: 'a',
 };
 
 /** Only plain ASCII domains — punycode is already ASCII, so IDNs survive. */

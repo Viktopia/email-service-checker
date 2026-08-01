@@ -18,7 +18,7 @@ export interface Finding {
 }
 
 export interface ConsumerHit {
-    kind: 'free' | 'disposable';
+    kind: 'free' | 'disposable' | 'alias';
     domain: string;
 }
 

@@ -72,6 +72,7 @@ describe('reportSummary', () => {
     test.each([
         ['free', 'free consumer mailbox'],
         ['disposable', 'disposable mailbox service'],
+        ['alias', 'alias / forwarding address'],
     ] as const)('mentions a %s consumer hit', (kind, expected) => {
         const hit: ConsumerHit = { kind, domain: 'example.com' };
         const summary = reportSummary(input({ mxRecords: [mx('mx.example.com')], consumerHit: hit }));

@@ -16,7 +16,7 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { type ConsumerShard, SHARD_BASE_PATH, SHARD_COUNT, shardIdFor } from '../src/consumer-shards.ts';
-import { DATASET_FILES, type DatasetKind, parseDatasetText } from '../src/datasets.ts';
+import { DATASET_FILES, type DatasetKind, parseDatasetText, SHARD_KEY } from '../src/datasets.ts';
 import { PROVIDERS, providerSlug } from '../src/providers.ts';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -57,7 +57,7 @@ for (const file of shardFiles) {
 
 let shardedDomains = 0;
 for (const kind of Object.keys(DATASET_FILES) as DatasetKind[]) {
-    const key = kind === 'free' ? 'f' : 'd';
+    const key = SHARD_KEY[kind];
     const domains = parseDatasetText(readFileSync(join(ROOT, DATASET_FILES[kind]), 'utf8'));
     const misplaced: string[] = [];
     for (const domain of domains) {
@@ -71,7 +71,7 @@ for (const kind of Object.keys(DATASET_FILES) as DatasetKind[]) {
     );
 }
 
-const shardTotal = [...shards.values()].reduce((n, s) => n + s.f.length + s.d.length, 0);
+const shardTotal = [...shards.values()].reduce((n, s) => n + s.f.length + s.d.length + s.a.length, 0);
 check(
     'shards hold exactly the committed domains',
     shardTotal === shardedDomains,
