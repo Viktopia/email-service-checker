@@ -425,6 +425,7 @@ function homeContentSection(): string {
                 <li>The tool resolves the domain's MX records over DNS and matches them against 160+ known providers.</li>
                 <li>You get the provider name, its category — mailbox, gateway, forwarder, or relay — and the raw MX records as evidence.</li>
             </ol>
+            <p class="text-ink-muted text-[0.95rem]">If you would rather read the records than the verdict, the <a href="/mx-lookup/">MX lookup</a> shows the same result with the mail exchangers and their priorities up front.</p>
         </section>
 
         <section class="card p-6 sm:p-8 flex flex-col gap-6" aria-labelledby="faq-heading">
@@ -490,6 +491,138 @@ for (const p of PROVIDERS) {
     );
 }
 
+// ---- 6b. Emit the MX lookup page -----------------------------------------
+
+// A second entry point for the same lookup, aimed at people who want to read
+// the MX records themselves rather than be told which provider runs the mail.
+// The tool already resolves MX over DoH and renders a priority-sorted evidence
+// table, so this is the existing capability under the name people search for —
+// not a doorway. Its guide and FAQ are deliberately disjoint from the
+// homepage's so the two pages are not near-duplicates competing with
+// each other.
+const MX_FAQ: ReadonlyArray<{ q: string; a: string }> = [
+    {
+        q: 'What is an MX record?',
+        a: 'An MX (Mail Exchange) record is a DNS record that names the server responsible for receiving email for a domain. When someone sends a message to you@example.com, their mail server looks up the MX records for example.com to find out where to deliver it. The records are public, so anyone can read them for any domain.',
+    },
+    {
+        q: 'How do I look up the MX records for a domain?',
+        a: 'Enter the domain in the form above and press Check. This MX lookup resolves the records over DNS and lists every mail exchanger it finds, with its priority, exactly as published. You do not need access to the domain or any credentials, because MX records are public DNS data.',
+    },
+    {
+        q: 'What does the priority number in an MX record mean?',
+        a: 'Priority (also called preference) decides the order in which sending servers try each host. The lowest number is tried first, so a record with priority 1 is preferred over one with priority 10. Equal numbers are treated as interchangeable and share the load. The value itself is arbitrary; only the relative order matters.',
+    },
+    {
+        q: 'Why does a domain have more than one MX record?',
+        a: 'Redundancy. If the preferred mail exchanger is unreachable, the sending server falls back to the next lowest priority, so mail queues rather than bounces. Large providers publish several hosts as a matter of course: Google Workspace and Microsoft 365 both do.',
+    },
+    {
+        q: 'What does it mean if a domain has no MX records?',
+        a: 'It means the domain is not set up to receive email, and mail sent to it will usually bounce. This is normal and often deliberate for a domain used only for a website, or for a parked domain. Note that a domain with no MX records can still send email, since sending is governed by SPF, DKIM and DMARC rather than by MX.',
+    },
+    {
+        q: 'How soon do MX record changes show up in a lookup?',
+        a: 'Each record carries a TTL (time to live) telling resolvers how long to cache it, commonly between five minutes and a few hours. Until that expires, some resolvers keep serving the old answer, which is why a change can appear live in one place and not another. This lookup queries public resolvers directly, so it reflects what they are currently serving.',
+    },
+];
+
+function mxContentSection(): string {
+    const faqHtml = MX_FAQ.map(
+        ({ q, a }) => `
+                <div class="flex flex-col gap-1.5">
+                    <h3 class="text-ink font-semibold text-[1.05rem]">${escapeHtml(q)}</h3>
+                    <p class="text-ink-muted text-[0.95rem]">${escapeHtml(a)}</p>
+                </div>`,
+    ).join('');
+
+    return `
+        <section class="card p-6 sm:p-8 flex flex-col gap-5">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">Guide</p>
+                <h2 class="display-name">How to read an MX record lookup</h2>
+            </div>
+            <p class="text-ink-muted">Every domain that receives email publishes one or more <strong>MX (Mail Exchange) records</strong> in public DNS, naming the servers that accept mail on its behalf. A lookup returns them in priority order, and there are three things worth reading in the result:</p>
+            <ol class="flex flex-col gap-3 text-ink-muted text-[0.95rem] list-decimal pl-5 marker:text-ink-muted">
+                <li><strong>The priority.</strong> Lowest is tried first. A domain with hosts at 1 and 10 prefers the first and falls back to the second only when it cannot be reached.</li>
+                <li><strong>The hostnames.</strong> These usually give away who runs the mail. Anything ending in <code>aspmx.l.google.com</code> is Google Workspace; <code>mail.protection.outlook.com</code> is Microsoft 365.</li>
+                <li><strong>How many there are.</strong> One host is a single point of failure; several mean mail queues elsewhere if the first is down.</li>
+            </ol>
+            <p class="text-ink-muted text-[0.95rem]">This lookup also matches the hostnames against 160+ known services, so alongside the raw records you get the name of the provider, and whether it is a mailbox, a security gateway, or a forwarder. If that is what you are after, the <a href="/">email provider checker</a> presents the same lookup provider-first.</p>
+        </section>
+
+        <section class="card p-6 sm:p-8 flex flex-col gap-6" aria-labelledby="mx-faq-heading">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">FAQ</p>
+                <h2 id="mx-faq-heading" class="display-name">MX records: common questions</h2>
+            </div>${faqHtml}
+        </section>`;
+}
+
+const MX_URL = `${SITE_ORIGIN}/mx-lookup/`;
+const MX_LOOKUP_LD = JSON.stringify({
+    '@context': 'https://schema.org',
+    '@graph': [
+        PUBLISHER_LD,
+        WEBSITE_LD,
+        {
+            '@type': 'BreadcrumbList',
+            '@id': `${MX_URL}#breadcrumb`,
+            itemListElement: [
+                {
+                    '@type': 'ListItem',
+                    position: 1,
+                    name: 'Email Service Checker',
+                    item: `${SITE_ORIGIN}/`,
+                },
+                { '@type': 'ListItem', position: 2, name: 'MX Lookup', item: MX_URL },
+            ],
+        },
+        {
+            '@type': 'WebPage',
+            '@id': `${MX_URL}#webpage`,
+            url: MX_URL,
+            name: 'MX Lookup',
+            description: 'Look up the MX records for any domain, with priorities, straight from public DNS.',
+            inLanguage: 'en',
+            isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+            breadcrumb: { '@id': `${MX_URL}#breadcrumb` },
+        },
+        {
+            '@type': 'FAQPage',
+            '@id': `${MX_URL}#faq`,
+            inLanguage: 'en',
+            isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+            mainEntity: MX_FAQ.map(({ q, a }) => ({
+                '@type': 'Question',
+                name: q,
+                acceptedAnswer: { '@type': 'Answer', text: a },
+            })),
+        },
+    ],
+});
+
+mkdirSync(join(DIST, 'mx-lookup'), { recursive: true });
+writeFileSync(
+    join(DIST, 'mx-lookup', 'index.html'),
+    render({
+        TITLE: 'MX Lookup: Check MX Records for Any Domain',
+        DESCRIPTION:
+            'Look up the MX records for any domain in seconds. See every mail exchanger with its priority, read straight from public DNS, plus the provider behind them.',
+        CANONICAL: MX_URL,
+        OG_TITLE: 'MX Lookup: Check MX Records for Any Domain',
+        OG_DESCRIPTION: 'Enter a domain to see its MX records and priorities, read straight from public DNS.',
+        JSON_LD: MX_LOOKUP_LD,
+        BREADCRUMBS: breadcrumbHtml([{ name: 'Home', href: '/' }, { name: 'MX Lookup' }]),
+        HERO_EYEBROW: 'MX lookup',
+        HERO_TITLE: 'Check the <em>MX records</em> for any domain',
+        HERO_LEDE:
+            'Enter a domain or email address to look up its MX records over public DNS. You get every mail exchanger with its priority, and the service they point to.',
+        PROFILE_SECTION: '',
+        CONTENT_SECTION: mxContentSection(),
+    }),
+);
+
 // ---- 7. Sitemap + robots --------------------------------------------------
 
 // Provider pages are generated wholesale from src/providers.ts and the shared
@@ -505,6 +638,7 @@ const HOMEPAGE_MODIFIED = gitLastModified(
 
 const sitemapUrls = [
     { loc: `${SITE_ORIGIN}/`, priority: '1.0', change: 'weekly', lastmod: HOMEPAGE_MODIFIED },
+    { loc: MX_URL, priority: '0.9', change: 'monthly', lastmod: HOMEPAGE_MODIFIED },
     ...PROVIDERS.map((p) => ({
         loc: `${SITE_ORIGIN}/provider/${providerSlug(p)}/`,
         priority: '0.7',
@@ -566,6 +700,7 @@ open free-mailbox (${datasetCounts.free.toLocaleString('en-US')} domains) and di
 ## Pages
 
 - [Home — check any domain](${SITE_ORIGIN}/): the checker itself, plus answers to common questions about finding a domain's email provider.
+- [MX lookup](${MX_URL}): the same lookup read records-first, listing every mail exchanger with its priority, plus answers to common questions about MX records.
 ${[...providersByCategory.entries()]
     .map(
         ([category, list]) => `
@@ -591,7 +726,9 @@ const total = readdirSync(DIST, { recursive: true })
     })
     .reduce((a, b) => a + b, 0);
 
-console.log(`Built ${(total / 1024).toFixed(1)} kB — ${PROVIDERS.length} provider pages + sitemap → ${DIST}`);
+console.log(
+    `Built ${(total / 1024).toFixed(1)} kB — ${PROVIDERS.length} provider pages + MX lookup + sitemap → ${DIST}`,
+);
 
 if (serve) {
     const port = Number(process.env.PORT ?? 3000);
