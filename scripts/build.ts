@@ -521,9 +521,14 @@ writeFileSync(
         JSON_LD: HOMEPAGE_LD,
         BREADCRUMBS: '',
         HERO_EYEBROW: 'Email provider checker',
-        HERO_TITLE: "What's <em>actually</em> handling the mail?",
+        // The H1 used to be "What's actually handling the mail?", which carried
+        // the voice but none of the language anyone searches. "email provider
+        // lookup" is the term the closest competitor ranks 3rd-4th for while
+        // this site sits 16th or off the page. The old line is kept as the
+        // opening of the lede, so the tone survives one line lower.
+        HERO_TITLE: 'Email provider <em>lookup</em> for any domain',
         HERO_LEDE:
-            "Type a domain or email address to find out who your email provider is. We'll check which service runs its mail — Google, Microsoft, Proton, Apple, and 160+ others.",
+            "What's actually handling the mail? Type a domain or email address and we'll check which service runs it, straight from public MX records: Google, Microsoft, Proton, Apple, and 160+ others.",
         PROFILE_SECTION: '',
         CONTENT_SECTION: homeContentSection(),
     }),
