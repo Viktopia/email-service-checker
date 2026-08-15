@@ -325,13 +325,45 @@ function categoryArticle(c: Provider['category']): string {
     return /^[aeiou]/i.test(CATEGORY_LABEL[c]) ? 'an' : 'a';
 }
 
+// Leads on the MX records rather than the category, because that is how people
+// search for these pages: "google workspace mx records" is 720 US searches a
+// month against 0 for the category phrasing. The category still follows in the
+// same sentence, and the hero lede and eyebrow state it outright.
 function describeProvider(p: Provider): string {
     const label = CATEGORY_LABEL[p.category].toLowerCase();
-    return `${p.name} is ${categoryArticle(p.category)} ${label}. Its mail servers' hostnames end in ${p.matchers.map((m) => `.${m}`).join(', ')}.`;
+    return `${p.name} MX records end in ${p.matchers.map((m) => `.${m}`).join(', ')}. ${p.name} is ${categoryArticle(p.category)} ${label}.`;
 }
 
 function relatedProviders(p: Provider, limit = 8): Provider[] {
     return PROVIDERS.filter((o) => o.category === p.category && o.name !== p.name).slice(0, limit);
+}
+
+// Providers that people routinely conflate, where landing on the wrong page
+// wastes the visit. "gmail mx records" is 880 US searches a month and covers
+// two different intents: the consumer service, and the records you point a
+// custom domain at. Those are Google Workspace's, not Gmail's, so each page
+// says so and links across.
+const CONFUSABLE: Record<string, { slug: string; text: string }> = {
+    gmail: {
+        slug: 'google-workspace',
+        text: 'Setting Gmail up on your own domain? You want the Google Workspace records, not these. A Workspace domain publishes aspmx.l.google.com, while gmail.com itself publishes gmail-smtp-in.l.google.com.',
+    },
+    'google-workspace': {
+        slug: 'gmail',
+        text: 'Checking a plain @gmail.com address instead? That is consumer Gmail, and it publishes different MX hosts from a Google Workspace domain.',
+    },
+};
+
+function confusableNote(slug: string): string {
+    const other = CONFUSABLE[slug];
+    if (!other) return '';
+    return `
+            <div class="flex flex-col gap-2">
+                <p class="eyebrow">Easily confused</p>
+                <p class="text-ink-muted text-[0.95rem]">${escapeHtml(other.text)} <a href="/provider/${other.slug}/">See ${escapeHtml(
+                    PROVIDERS.find((q) => providerSlug(q) === other.slug)?.name ?? other.slug,
+                )} MX records</a>.</p>
+            </div>`;
 }
 
 function profileSection(p: Provider): string {
@@ -373,6 +405,8 @@ function profileSection(p: Provider): string {
                 <p class="eyebrow">MX hostname patterns</p>
                 <ul class="flex flex-col gap-1 text-sm">${matchersList}</ul>
             </div>
+
+            ${confusableNote(slug)}
 
             ${p.url ? `<p class="text-sm"><a href="${escapeHtml(p.url)}" target="_blank" rel="noopener">Official site →</a></p>` : ''}
 
@@ -471,19 +505,23 @@ for (const p of PROVIDERS) {
 
     const dir = join(DIST, 'provider', slug);
     mkdirSync(dir, { recursive: true });
-    const title = `${p.name} — ${CATEGORY_LABEL[p.category]} | Email Service Checker`;
+    // "<name> MX Records" rather than "<name> — <category>": it is what the
+    // page actually shows, it is the phrasing with the search volume behind it,
+    // and it is shorter, so fewer titles get truncated in the results (7 over
+    // 60 characters instead of 18). The category moves to the eyebrow.
+    const title = `${p.name} MX Records | Email Service Checker`;
     writeFileSync(
         join(dir, 'index.html'),
         render({
             TITLE: title,
             DESCRIPTION: `${describeProvider(p)} Check whether any domain uses it.`,
             CANONICAL: `${SITE_ORIGIN}/provider/${slug}/`,
-            OG_TITLE: `${p.name} — ${CATEGORY_LABEL[p.category]}`,
+            OG_TITLE: `${p.name} MX Records`,
             OG_DESCRIPTION: describeProvider(p),
             JSON_LD: providerJsonLd(p),
             BREADCRUMBS: breadcrumbHtml([{ name: 'Home', href: '/' }, { name: p.name }]),
             HERO_EYEBROW: escapeHtml(CATEGORY_LABEL[p.category]),
-            HERO_TITLE: escapeHtml(p.name),
+            HERO_TITLE: `${escapeHtml(p.name)} <em>MX records</em>`,
             HERO_LEDE: `${p.name} is ${categoryArticle(p.category)} ${CATEGORY_LABEL[p.category].toLowerCase()}. Type any domain below to see if its email runs through ${p.name}.`,
             PROFILE_SECTION: profileSection(p),
             CONTENT_SECTION: '',

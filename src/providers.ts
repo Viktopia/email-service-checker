@@ -86,6 +86,12 @@ export const PROVIDERS: readonly Provider[] = [
     { name: 'NameBright Mail',      category: 'mailbox', url: 'https://www.namebright.com',    matchers: ['namebrightmail.com'] },
 
     // ---- Consumer mailbox services ----------------------------------------
+    // Consumer Gmail publishes gmail-smtp-in.l.google.com, which is a different
+    // host from the aspmx.l.google.com a Google Workspace domain publishes.
+    // Without this row the broad 'google.com' matcher on Google Workspace won
+    // by suffix, so gmail.com reported as a business mailbox provider. The
+    // matcher here is longer, so longest-match resolves it to consumer Gmail.
+    { name: 'Gmail',                category: 'consumer', url: 'https://mail.google.com',      matchers: ['gmail-smtp-in.l.google.com'] },
     { name: 'Yahoo Mail',           category: 'consumer', url: 'https://mail.yahoo.com',       matchers: ['yahoodns.net'] },
     { name: 'AOL Mail',             category: 'consumer', url: 'https://mail.aol.com',         matchers: ['mx.aol.com', 'aol.com'] },
     { name: 'Apple iCloud Mail',    category: 'consumer', url: 'https://www.icloud.com/mail',  matchers: ['mail.icloud.com', 'icloud.com', 'me.com'] },
