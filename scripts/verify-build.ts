@@ -80,7 +80,15 @@ check(
 
 // ---- Pages ----------------------------------------------------------------
 
-const pages = ['index.html', ...PROVIDERS.map((p) => join('provider', providerSlug(p), 'index.html'))];
+// The pages that are not generated from PROVIDERS. Kept in one place so a new
+// standalone page picks up the JSON-LD and placeholder checks below, and the
+// sitemap and llms.txt assertions further down, without being wired in twice.
+const STANDALONE_PAGES = ['/', '/mx-lookup/'];
+
+const pages = [
+    ...STANDALONE_PAGES.map((p) => join(p.replace(/^\//, ''), 'index.html')),
+    ...PROVIDERS.map((p) => join('provider', providerSlug(p), 'index.html')),
+];
 
 for (const page of pages) {
     const path = join(DIST, page);
@@ -142,11 +150,18 @@ for (const page of pages) {
 
 const sitemap = readFileSync(join(DIST, 'sitemap.xml'), 'utf8');
 const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
+// Homepage + /mx-lookup/ + one page per provider.
 check(
-    'sitemap lists the homepage and every provider',
-    locs.length === PROVIDERS.length + 1,
+    'sitemap lists the homepage, the MX lookup, and every provider',
+    locs.length === PROVIDERS.length + STANDALONE_PAGES.length,
     `${locs.length} URLs`,
 );
+for (const path of STANDALONE_PAGES) {
+    check(
+        `sitemap lists ${path}`,
+        locs.some((l) => new URL(l).pathname === path),
+    );
+}
 
 for (const loc of locs) {
     const rel = new URL(loc).pathname.replace(/^\//, '');
@@ -177,6 +192,12 @@ check(
 const llms = readFileSync(join(DIST, 'llms.txt'), 'utf8');
 for (const p of PROVIDERS) {
     check(`llms.txt lists ${p.name}`, llms.includes(`/provider/${providerSlug(p)}/`));
+}
+// Absolute match, so that the home entry's "/" cannot satisfy the check by
+// appearing inside some other provider URL.
+const ORIGIN = new URL(locs[0]!).origin;
+for (const path of STANDALONE_PAGES) {
+    check(`llms.txt lists ${path}`, llms.includes(`${ORIGIN}${path})`));
 }
 
 // ---- Result ---------------------------------------------------------------
