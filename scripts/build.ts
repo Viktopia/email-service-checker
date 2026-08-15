@@ -244,11 +244,48 @@ const WEBSITE_LD = {
     },
 };
 
+// The site is a free, no-signup browser tool, and every competitor ranking
+// above it in this niche is marked up as one. Declaring it is accurate and
+// costs nothing.
+//
+// Deliberately NO aggregateRating. There are no reviews to aggregate, and
+// review markup that nothing on the page substantiates violates Google's
+// structured data policy however common it is in this niche.
+const WEBAPP_LD = {
+    '@type': 'WebApplication',
+    '@id': `${SITE_ORIGIN}/#webapp`,
+    name: 'Email Service Checker',
+    url: SITE_ORIGIN,
+    applicationCategory: 'UtilitiesApplication',
+    operatingSystem: 'Any',
+    browserRequirements: 'Requires JavaScript',
+    inLanguage: 'en',
+    isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+    publisher: { '@id': `${SITE_ORIGIN}/#publisher` },
+    description:
+        "Reads a domain's public MX records in the browser and identifies the email provider, security gateway or forwarder behind them.",
+    // Free with no account, which is the honest reading of Offer price 0.
+    offers: {
+        '@type': 'Offer',
+        price: '0',
+        priceCurrency: 'USD',
+    },
+    featureList: [
+        'Email provider lookup by domain or email address',
+        'MX record lookup with priorities',
+        `Identifies ${PROVIDERS.length} mailbox providers, security gateways, forwarders and relays`,
+        'Flags free, disposable and alias mailbox domains',
+        'Runs entirely in the browser over public DNS',
+        'No sign-in and no data stored',
+    ],
+};
+
 const HOMEPAGE_LD = JSON.stringify({
     '@context': 'https://schema.org',
     '@graph': [
         PUBLISHER_LD,
         WEBSITE_LD,
+        WEBAPP_LD,
         {
             '@type': 'FAQPage',
             '@id': `${SITE_ORIGIN}/#faq`,
@@ -603,6 +640,7 @@ const MX_LOOKUP_LD = JSON.stringify({
     '@graph': [
         PUBLISHER_LD,
         WEBSITE_LD,
+        WEBAPP_LD,
         {
             '@type': 'BreadcrumbList',
             '@id': `${MX_URL}#breadcrumb`,

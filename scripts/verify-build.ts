@@ -141,6 +141,17 @@ for (const page of pages) {
             dangling.length === 0,
             dangling.join(', '),
         );
+
+        // No review markup. Competitors in this niche ship an aggregateRating
+        // with no reviews anywhere on the page, which is a structured data
+        // policy violation and a manual-action risk. The site has nothing to
+        // aggregate, so the correct count here is zero, permanently.
+        const ratings = [
+            ...new Set(
+                [...JSON.stringify(graph).matchAll(/"@type":"(AggregateRating|Review)"/g)].map((m) => m[1]!),
+            ),
+        ];
+        check(`${page} claims no ratings or reviews`, ratings.length === 0, ratings.join(', '));
     } catch (err) {
         fail(`${page} JSON-LD is invalid: ${String(err)}`);
     }
