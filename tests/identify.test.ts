@@ -60,6 +60,20 @@ describe('identifyProviders', () => {
         expect(finding?.provider.name).toBe('Google Workspace');
     });
 
+    test('consumer Gmail is not reported as Google Workspace', () => {
+        // gmail.com publishes gmail-smtp-in.l.google.com, which also ends in
+        // Google Workspace's broad '.google.com' matcher. The longer Gmail
+        // matcher has to win, or every consumer Gmail address reads as a
+        // business mailbox provider.
+        const [finding] = identifyProviders([
+            mx('gmail-smtp-in.l.google.com', 5),
+            mx('alt1.gmail-smtp-in.l.google.com', 10),
+        ]);
+        expect(finding?.provider.name).toBe('Gmail');
+        expect(finding?.provider.category).toBe('consumer');
+        expect(finding?.matchedMx).toHaveLength(2);
+    });
+
     test('does not match a suffix that is not on a label boundary', () => {
         // "mail.com" must not match "googlemail.com" — the documented contract
         // of the dot-suffix rule in providers.ts.
