@@ -227,6 +227,16 @@ const FAQ: ReadonlyArray<{ q: string; a: string }> = [
 // Emitted on every page, not just the homepage: provider pages carry
 // `isPartOf: { '@id': '…/#website' }`, and that reference used to dangle
 // because the node it points at only existed on the homepage.
+// No potentialAction/SearchAction here. It existed only to feed Google's
+// Sitelinks Searchbox, which Google announced as deprecated on 2024-10-21 and
+// removed from results on 2024-11-21, along with the Search Console report and
+// the Rich Results Test highlight. It was also the site's only structured data
+// that failed validation: the required 'query-input' key is a Google extension,
+// not a schema.org property, so it was invalid markup feeding a dead feature.
+//
+// The capability itself is real and still works: /?domain=example.com runs the
+// lookup on load (see src/main.ts). If a future consumer wants that advertised
+// again, a SearchAction without 'query-input' would be valid schema.org.
 const WEBSITE_LD = {
     '@type': 'WebSite',
     '@id': `${SITE_ORIGIN}/#website`,
@@ -234,14 +244,6 @@ const WEBSITE_LD = {
     name: 'Email Service Checker',
     publisher: { '@id': `${SITE_ORIGIN}/#publisher` },
     inLanguage: 'en',
-    potentialAction: {
-        '@type': 'SearchAction',
-        target: {
-            '@type': 'EntryPoint',
-            urlTemplate: `${SITE_ORIGIN}/?domain={domain}`,
-        },
-        'query-input': 'required name=domain',
-    },
 };
 
 // The site is a free, no-signup browser tool, and every competitor ranking
