@@ -19,6 +19,16 @@ export function isValidDomain(domain: string): boolean {
     return /^([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z]{2,}$/.test(domain);
 }
 
+/** A DKIM selector: one or more DNS labels, underscores allowed (RFC 6376 §3.1). */
+export function isValidSelector(s: string): boolean {
+    return /^[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?(?:\.[a-z0-9_](?:[a-z0-9_-]{0,61}[a-z0-9_])?)*$/i.test(s);
+}
+
+/** RFC 7505: a single MX of "." at priority 0 declares that the domain accepts no mail. */
+export function isNullMx(records: readonly MxRecord[]): boolean {
+    return records.length === 1 && (records[0]!.host === '' || records[0]!.host === '.');
+}
+
 function matchProvider(mxHost: string): Provider | null {
     const host = mxHost.toLowerCase().replace(/\.$/, '');
     let best: Provider | null = null;

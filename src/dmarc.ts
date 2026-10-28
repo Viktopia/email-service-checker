@@ -190,7 +190,11 @@ export function parseDmarc(record: string): ParsedDmarc {
         if (!opts.every((x) => /^[01ds]$/.test(x))) {
             errors.push(`fo=${fo} must be a colon-separated list of 0, 1, d and s.`);
         } else if (opts.includes('0') && opts.includes('1')) {
-            errors.push('fo=0 and fo=1 are mutually exclusive.');
+            // Common in the wild, and it only affects failure reports, so it
+            // is not worth failing the whole record over.
+            warnings.push(
+                'fo=0 and fo=1 contradict each other (RFC 9989 makes them mutually exclusive); receivers may ignore fo.',
+            );
         }
     }
 
@@ -513,7 +517,7 @@ export async function checkDmarc(domain: string, resolve: Resolve): Promise<Dmar
         id: 'dmarc-dkim',
         status: 'manual',
         title: 'DKIM signing not checked',
-        detail: 'DMARC passes on aligned SPF or DKIM, and RFC 9989 requires DKIM for p=reject. DKIM keys live under selectors that cannot be discovered from DNS, so check a message you sent: its headers should show dkim=pass with header.d= this domain.',
+        detail: 'DMARC passes on aligned SPF or DKIM, and RFC 9989 requires DKIM for p=reject. DKIM keys live under selectors that cannot be discovered from DNS, so check a message you sent: its headers should show dkim=pass with header.d= this domain. The DKIM checker can then validate the key for that selector.',
     });
 
     return { domain, policyDomain, records, parsed, checks };

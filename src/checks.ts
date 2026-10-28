@@ -52,5 +52,7 @@ export function verdict(checks: readonly Check[]): CheckStatus {
     if (checks.some((c) => c.status === 'fail')) return 'fail';
     if (checks.some((c) => c.status === 'warn')) return 'warn';
     if (checks.some((c) => c.status === 'manual')) return 'manual';
+    // Nothing graded, only notes (a null MX, say): calling that a pass would overstate it.
+    if (checks.length > 0 && checks.every((c) => c.status === 'info')) return 'info';
     return 'pass';
 }

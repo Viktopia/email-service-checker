@@ -1,5 +1,6 @@
 /**
- * DOM rendering for the diagnostic tools: SPF, DMARC and the MX health checks.
+ * DOM rendering for the diagnostic tools: every checker under /tools/, the
+ * MX health card, and the all-in-one email security report.
  *
  * Shares the element helper and card treatment with render.ts, so a checker
  * report sits in the same visual family as the provider report.
@@ -8,7 +9,10 @@
 import type { BimiReport } from './bimi.ts';
 import { type Check, type CheckStatus, STATUS_LABEL, sortChecks, tally, verdict } from './checks.ts';
 import { type DaneReport, describeTlsa } from './dane.ts';
+import type { DkimReport } from './dkim.ts';
 import { type DmarcReport, describeTag } from './dmarc.ts';
+import type { DnsHealthReport } from './dns-health.ts';
+import type { EmailReport } from './email-report.ts';
 import type { MtaStsReport } from './mta-sts.ts';
 import type { MxHealth, MxHost } from './mx-health.ts';
 import { CARD, el, reportNumber, shareButton } from './render.ts';
@@ -23,21 +27,27 @@ function plural(n: number, word: string): string {
     return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
-/** "2 errors, 1 warning" — or "All checks passed". */
-export function tallyText(checks: readonly Check[]): string {
+/** "2 errors, 1 warning" — or "All 6 checks passed". `noun` names what is being counted. */
+export function tallyText(checks: readonly Check[], noun = 'check'): string {
     const t = tally(checks);
     const parts: string[] = [];
     if (t.fail) parts.push(plural(t.fail, 'error'));
     if (t.warn) parts.push(plural(t.warn, 'warning'));
     if (t.manual) parts.push(`${t.manual} not verifiable from a browser`);
-    if (parts.length === 0) return t.pass === 1 ? 'The check passed' : `All ${t.pass} checks passed`;
+    if (parts.length === 0 && t.pass === 0)
+        return t.info === 1 ? 'One note, nothing to grade' : `${t.info} notes, nothing to grade`;
+    if (parts.length === 0) return t.pass === 1 ? `The ${noun} passed` : `All ${t.pass} ${noun}s passed`;
     if (t.pass) parts.push(`${t.pass} passed`);
     return parts.join(', ');
 }
 
-/** One line for the live region, so the result is announced without reading out the whole card. */
-export function checksSummary(tool: string, domain: string, checks: readonly Check[]): string {
-    return `${tool} result for ${domain}: ${tallyText(checks)}.`;
+export function checksSummary(
+    tool: string,
+    domain: string,
+    checks: readonly Check[],
+    noun = 'check',
+): string {
+    return `${tool} result for ${domain}: ${tallyText(checks, noun)}.`;
 }
 
 function subjectRow(domain: string): HTMLElement {
@@ -283,6 +293,9 @@ const TOOL_LINKS: Record<string, ToolLink> = {
     tlsRpt: { href: '/tools/tls-rpt-checker/', label: 'Check TLS-RPT' },
     dane: { href: '/tools/dane-checker/', label: 'Check DANE' },
     bimi: { href: '/tools/bimi-checker/', label: 'Check BIMI' },
+    dkim: { href: '/tools/dkim-checker/', label: 'Check DKIM' },
+    dns: { href: '/tools/dns-checker/', label: 'Check DNS' },
+    report: { href: '/tools/email-security-report/', label: 'Full report' },
 };
 
 function genericReport(
@@ -365,4 +378,153 @@ export function renderBimiReport(target: HTMLElement, r: BimiReport): void {
         [],
         [TOOL_LINKS.dmarc!, TOOL_LINKS.spf!],
     );
+}
+
+export function renderDkimReport(target: HTMLElement, r: DkimReport): void {
+    const extras: HTMLElement[] = [];
+    if (r.keys.length > 0) {
+        extras.push(
+            table(
+                `Keys — ${plural(r.keys.length, 'record')}`,
+                ['Selector', 'Type', 'Key'],
+                r.keys.map((k) => [
+                    el('code', {}, k.selector),
+                    k.keyType,
+                    k.revoked
+                        ? 'revoked (empty p=)'
+                        : k.bits
+                          ? `${k.bits}-bit`
+                          : k.keyType === 'ed25519'
+                            ? '256-bit'
+                            : '—',
+                ]),
+            ),
+        );
+    }
+    if (r.keys.length > 1) {
+        const details = el(
+            'details',
+            { class: 'report-row flex flex-col gap-3' },
+            el('summary', { class: 'eyebrow cursor-pointer' }, `Show the ${r.keys.length} records`),
+        );
+        for (const k of r.keys) details.append(recordBlock(k.name, k.record));
+        extras.push(details);
+    }
+    if (!r.selector) {
+        extras.push(
+            el(
+                'div',
+                { class: 'report-row flex flex-col gap-2' },
+                el('p', { class: 'eyebrow' }, `Selectors tried — ${r.tried.length}`),
+                el(
+                    'p',
+                    { class: 'text-ink-muted text-[0.85rem] font-mono break-words' },
+                    r.tried.join(' · '),
+                ),
+            ),
+        );
+    }
+    genericReport(
+        target,
+        r.domain,
+        r.keys.length > 0 ? 'DKIM keys' : 'No DKIM key found',
+        r.checks,
+        // One key reads best in full; several would bury the checks under
+        // base64, so they move into a collapsed block after the key table.
+        r.keys.length === 1 ? [{ label: r.keys[0]!.name, text: r.keys[0]!.record }] : [],
+        extras,
+        [TOOL_LINKS.dmarc!, TOOL_LINKS.spf!],
+    );
+}
+
+export function renderDnsHealthReport(target: HTMLElement, r: DnsHealthReport): void {
+    const extras: HTMLElement[] = [];
+    if (r.nameservers.length > 0) {
+        extras.push(
+            table(
+                `Nameservers — ${plural(r.nameservers.length, 'host')}`,
+                ['Host', 'Addresses'],
+                r.nameservers.map((n) => [
+                    el('span', { class: 'mx-host' }, n.host),
+                    el('span', { class: 'addr-list' }, [...n.ipv4, ...n.ipv6].join('\n') || 'no address'),
+                ]),
+            ),
+        );
+    }
+    if (r.soa) {
+        const s = r.soa;
+        extras.push(
+            table(
+                'SOA record',
+                ['Field', 'Value'],
+                [
+                    ['Primary', el('span', { class: 'mx-host' }, s.mname)],
+                    ['Contact', el('span', { class: 'mx-host' }, s.rname)],
+                    ['Serial', String(s.serial)],
+                    ['Refresh', `${s.refresh} s`],
+                    ['Retry', `${s.retry} s`],
+                    ['Expire', `${s.expire} s`],
+                    ['Negative TTL', `${s.minimum} s`],
+                ],
+            ),
+        );
+    }
+    genericReport(target, r.domain, `DNS for ${r.zone}`, r.checks, [], extras, [
+        TOOL_LINKS.dane!,
+        TOOL_LINKS.report!,
+    ]);
+}
+
+/** One pseudo-check per standard, so summaries count standards rather than every test inside them. */
+export function reportLineChecks(r: EmailReport): Check[] {
+    return r.lines.map((l) => ({ id: l.key, status: l.status, title: l.label, detail: l.headline }));
+}
+
+export function renderEmailReport(target: HTMLElement, r: EmailReport): void {
+    const card = el('section', { class: CARD });
+    const perStandard = reportLineChecks(r);
+    card.append(subjectRow(r.domain));
+    card.append(
+        el(
+            'div',
+            { class: 'report-row flex flex-col gap-2' },
+            el('h3', { class: 'display-name' }, 'Email security report'),
+            el(
+                'p',
+                { class: 'text-ink-muted text-[0.92rem]' },
+                `${tallyText(perStandard, 'standard')} across ${r.lines.length} standards. There is no overall score: each standard protects against something different, and what a browser cannot verify is shown as such.`,
+            ),
+        ),
+    );
+    const list = el('ul', { class: 'check-list' });
+    for (const l of r.lines) {
+        list.append(
+            el(
+                'li',
+                { class: 'check', 'data-check': l.key },
+                el('div', { class: 'check-badge' }, statusBadge(l.status)),
+                el(
+                    'div',
+                    { class: 'flex flex-col gap-1 min-w-0' },
+                    el(
+                        'p',
+                        { class: 'check-title' },
+                        el('a', { href: `${l.href}?domain=${encodeURIComponent(r.domain)}` }, l.label),
+                        el('span', { class: 'text-ink-muted font-normal' }, ` — ${l.role}`),
+                    ),
+                    el('p', { class: 'check-detail' }, l.headline),
+                ),
+            ),
+        );
+    }
+    card.append(
+        el(
+            'div',
+            { class: 'report-row flex flex-col gap-3' },
+            el('p', { class: 'eyebrow' }, 'By standard'),
+            list,
+        ),
+    );
+    card.append(shareRow(r.domain));
+    target.replaceChildren(card);
 }

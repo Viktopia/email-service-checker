@@ -14,7 +14,7 @@ export interface Faq {
 
 export interface ToolPage {
     /** Matches the Tool union in src/main.ts; set on the form as data-tool. */
-    key: 'spf' | 'dmarc' | 'mta-sts' | 'tls-rpt' | 'dane' | 'bimi';
+    key: 'spf' | 'dmarc' | 'mta-sts' | 'tls-rpt' | 'dane' | 'bimi' | 'dkim' | 'dns' | 'report';
     slug: string;
     /** Short name, used in navigation and breadcrumbs. */
     name: string;
@@ -34,6 +34,44 @@ export interface ToolPage {
 }
 
 export const TOOLS: readonly ToolPage[] = [
+    {
+        key: 'report',
+        slug: 'email-security-report',
+        name: 'Email Security Report',
+        title: 'Email Security Report: Check SPF, DKIM, DMARC, MTA-STS and More at Once',
+        description:
+            'Run every email security check on a domain at once: MX, SPF, DKIM, DMARC (RFC 9989), MTA-STS, TLS-RPT, DNSSEC and DANE, BIMI and DNS health, with one verdict per standard.',
+        heroTitle: 'How secure is a domain’s <em>email</em>?',
+        heroLede:
+            'One check for every standard: who may send, whether mail is signed, the spoofing policy, encryption in transit, and the DNS underneath. Each gets its own verdict; there is no score to game.',
+        placeholder: 'example.com',
+        summary: 'Runs every check at once and gives one verdict per standard, linking to the detail.',
+        guideHeading: 'How to read the report',
+        guideHtml: `
+<p>Each line is one standard, with the most important finding for it. Follow the link for the full breakdown.</p>
+<ul>
+<li><strong>Error</strong> means something is broken or missing in a way that affects delivery or lets the domain be spoofed.</li>
+<li><strong>Warning</strong> means it works but is weaker than it should be, such as a DMARC policy of <code>p=none</code>.</li>
+<li><strong>Not verifiable</strong> means a browser cannot see enough to judge, and says what to check by hand: DKIM selectors that cannot be listed, policy files served without CORS, certificates that need an SMTP connection.</li>
+</ul>
+<p>There is deliberately no overall score. SPF, DKIM and DMARC protect against spoofing; MTA-STS, TLS-RPT and DANE protect mail in transit; BIMI is branding. A domain can be excellent at one and absent at another, and an average would hide exactly that.</p>
+<p>A sensible order to fix things in: <a href="/guides/how-to-create-an-spf-record/">SPF</a>, then <a href="/guides/what-is-dkim/">DKIM</a>, then <a href="/guides/dmarc-from-none-to-reject/">DMARC</a> through to <code>p=reject</code>, then <a href="/guides/mta-sts-and-tls-rpt/">TLS-RPT and MTA-STS</a>.</p>`,
+        faq: [
+            {
+                q: 'What does an email security check cover?',
+                a: 'This report checks the MX records that receive mail, SPF and DKIM which authenticate it, DMARC which tells receivers what to do with mail that fails, MTA-STS, TLS-RPT and DANE which protect mail in transit, BIMI for brand logos, and the health of the DNS everything depends on.',
+            },
+            {
+                q: 'Why is there no overall score?',
+                a: 'Because the standards protect against different things, and an average hides the gaps. A domain with perfect SPF and no DMARC is still easy to spoof. Each standard gets its own verdict instead, with the most important finding.',
+            },
+            {
+                q: 'Is anything sent to a server?',
+                a: 'No. Every check runs in your browser and queries public DNS over HTTPS. Nothing is stored, and the domain you check is not logged by this site.',
+            },
+        ],
+        guides: ['spf-dkim-dmarc-explained', 'dmarcbis', 'mta-sts-and-tls-rpt'],
+    },
     {
         key: 'spf',
         slug: 'spf-checker',
@@ -280,6 +318,82 @@ export const TOOLS: readonly ToolPage[] = [
             },
         ],
         guides: ['dmarc-from-none-to-reject'],
+    },
+    {
+        key: 'dkim',
+        slug: 'dkim-checker',
+        name: 'DKIM Checker',
+        title: 'DKIM Checker: Look Up and Validate DKIM Keys by Selector',
+        description:
+            "Check a domain's DKIM public key records. Enter a selector, or let it try the selectors common mail services use. Validates the key type, RSA key length, revoked keys and testing mode.",
+        heroTitle: 'Check a <em>DKIM key</em>',
+        heroLede:
+            'Look up the DKIM public key for a domain and selector, or try the selectors that Google, Microsoft and the main mail services use, and check the key is strong enough to be trusted.',
+        placeholder: 'example.com',
+        summary:
+            'Looks up DKIM keys by selector, or tries common ones, and checks key type, length and revocation.',
+        guideHeading: 'What the DKIM checker tests',
+        guideHtml: `
+<p>DKIM keys are published at <code>&lt;selector&gt;._domainkey.</code>your domain. DNS cannot list selectors, so you either give one — it is the <code>s=</code> value in the <code>DKIM-Signature</code> header of a message the domain sent — or the checker tries the ones common services use.</p>
+<ul>
+<li><strong>The record.</strong> Parses, has a <code>p=</code> key, and <code>v=DKIM1</code> first if present. Two key records at one name make verification fail at random.</li>
+<li><strong>Key strength.</strong> RFC 8301 requires receivers to reject RSA keys under 1024 bits and asks signers for 2048. The checker reads the key length from the key itself. Ed25519 keys (RFC 8463) are recognised.</li>
+<li><strong>Revoked keys.</strong> An empty <code>p=</code> revokes the key; correct for a retired selector, a problem if anything still signs with it.</li>
+<li><strong>Testing and hashes.</strong> <code>t=y</code> asks receivers to ignore signatures, and a key limited to <code>h=sha1</code> cannot produce a signature receivers accept.</li>
+</ul>
+<p>A published key shows a domain <em>can</em> sign, not that it does; the report says so. Not finding a key at the common selectors proves nothing either.</p>`,
+        faq: [
+            {
+                q: 'How do I find my DKIM selector?',
+                a: 'Open a message the domain sent and view its original headers. The DKIM-Signature header contains s=, the selector, and d=, the signing domain. The key is published at <selector>._domainkey.<domain>. Google Workspace uses google by default and Microsoft 365 uses selector1 and selector2.',
+            },
+            {
+                q: 'What DKIM key length should I use?',
+                a: '2048-bit RSA. RFC 8301 says receivers must not accept keys under 1024 bits, and 1024-bit keys are considered weak. Most providers now generate 2048-bit keys by default; older setups may need rotating.',
+            },
+            {
+                q: 'Why does the checker not find my DKIM key?',
+                a: 'Selectors cannot be listed from DNS, so without one the checker can only try common names. Enter the selector from the s= value of a DKIM-Signature header and it will check that key directly.',
+            },
+        ],
+        guides: ['what-is-dkim', 'dkim2', 'spf-dkim-dmarc-explained'],
+    },
+    {
+        key: 'dns',
+        slug: 'dns-checker',
+        name: 'DNS Checker',
+        title: 'DNS Health Checker: Nameservers, SOA and DNSSEC',
+        description:
+            "Check a domain's DNS health: how many nameservers it has, whether they resolve to public addresses in different networks, SOA timer values, and DNSSEC.",
+        heroTitle: 'Check a domain’s <em>DNS health</em>',
+        heroLede:
+            'Every email check depends on DNS answering reliably. Check the nameservers, the SOA record and DNSSEC behind a domain.',
+        placeholder: 'example.com',
+        summary: 'Checks nameserver count, addresses and network spread, SOA timers, and DNSSEC.',
+        guideHeading: 'What the DNS checker tests',
+        guideHtml: `
+<ul>
+<li><strong>At least two nameservers</strong>, as RFC 2182 requires, each resolving to a public address.</li>
+<li><strong>Network diversity.</strong> Nameservers all in one /24 can be taken out together by one routing problem. Anycast providers are the usual exception.</li>
+<li><strong>SOA timers</strong> within the ranges RFC 1912 and common operational guidance recommend: refresh, retry, expire, and the negative-caching TTL.</li>
+<li><strong>DNSSEC</strong>, from the validating resolvers' AD flag.</li>
+</ul>
+<p>A browser reaches DNS only through public resolvers, never each nameserver directly. So checks that need per-server queries — whether every server is authoritative, whether they agree on the SOA serial, whether they allow zone transfers — are marked not verifiable.</p>`,
+        faq: [
+            {
+                q: 'How many nameservers should a domain have?',
+                a: 'At least two, on different networks, as RFC 2182 requires. Most DNS providers give you two to four. With a single nameserver, any outage takes the whole domain offline, including its email.',
+            },
+            {
+                q: 'What do the SOA timers mean?',
+                a: 'Refresh is how often secondary nameservers check for changes, retry how soon they try again after a failure, expire how long they keep serving the zone without reaching the primary, and the minimum field sets how long resolvers cache "name does not exist" answers.',
+            },
+            {
+                q: 'Why does DNS health matter for email?',
+                a: 'MX, SPF, DKIM, DMARC and MTA-STS are all DNS records. If the nameservers are slow or unreachable, receivers cannot look them up, and mail can be delayed, rejected, or fail authentication.',
+            },
+        ],
+        guides: ['secure-a-domain-that-sends-no-email'],
     },
 ];
 

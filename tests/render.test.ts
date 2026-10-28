@@ -64,6 +64,12 @@ describe('reportSummary', () => {
         expect(reportSummary(input())).toContain('no MX records');
     });
 
+    test('names a null MX instead of an unknown provider', () => {
+        const summary = reportSummary(input({ mxRecords: [{ priority: 0, host: '' }] }));
+        expect(summary).toContain('null MX');
+        expect(summary).not.toContain('no known provider');
+    });
+
     test('says so when MX records matched nothing known', () => {
         const summary = reportSummary(input({ mxRecords: [mx('mx.unknown.example')] }));
         expect(summary).toContain('no known provider');

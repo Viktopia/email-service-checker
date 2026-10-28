@@ -9,8 +9,11 @@
 import { checkBimi } from './bimi.ts';
 import { type Check, verdict } from './checks.ts';
 import { checkDane } from './dane.ts';
+import { checkDkim } from './dkim.ts';
 import { checkDmarc } from './dmarc.ts';
 import { resolve } from './dns.ts';
+import { checkDnsHealth } from './dns-health.ts';
+import { buildEmailReport } from './email-report.ts';
 import { lookupMx } from './lookup.ts';
 import { checkMtaSts } from './mta-sts.ts';
 import { checkMx } from './mx-health.ts';
@@ -18,11 +21,15 @@ import {
     checksSummary,
     renderBimiReport,
     renderDaneReport,
+    renderDkimReport,
     renderDmarcReport,
+    renderDnsHealthReport,
+    renderEmailReport,
     renderMtaStsReport,
     renderMxHealth,
     renderSpfReport,
     renderTlsRptReport,
+    reportLineChecks,
 } from './render-checks.ts';
 import { checkSpf } from './spf.ts';
 import { checkTlsRpt } from './tls-rpt.ts';
@@ -30,7 +37,21 @@ import type { MxRecord } from './types.ts';
 
 export { checksSummary, verdict };
 
-export type CheckerKey = 'spf' | 'dmarc' | 'mta-sts' | 'tls-rpt' | 'dane' | 'bimi';
+export type CheckerKey =
+    | 'spf'
+    | 'dmarc'
+    | 'mta-sts'
+    | 'tls-rpt'
+    | 'dane'
+    | 'bimi'
+    | 'dkim'
+    | 'dns'
+    | 'report';
+
+/** Extra form inputs a checker reads, such as the DKIM selector. */
+export interface CheckerOptions {
+    selector?: string;
+}
 
 /**
  * The checkers that share one shape: run, render, announce. Each returns the
@@ -38,7 +59,12 @@ export type CheckerKey = 'spf' | 'dmarc' | 'mta-sts' | 'tls-rpt' | 'dane' | 'bim
  */
 export const CHECKERS: Record<
     CheckerKey,
-    { label: string; run: (domain: string, target: HTMLElement) => Promise<Check[]> }
+    {
+        label: string;
+        /** What the returned checks count, for the announcement: a check, or a whole standard. */
+        noun?: string;
+        run: (domain: string, target: HTMLElement, options: CheckerOptions) => Promise<Check[]>;
+    }
 > = {
     spf: {
         label: 'SPF',
@@ -78,6 +104,31 @@ export const CHECKERS: Record<
             const r = await checkDane(domain, await lookupMx(domain), resolve);
             renderDaneReport(target, r);
             return r.checks;
+        },
+    },
+    dkim: {
+        label: 'DKIM',
+        run: async (domain, target, { selector }) => {
+            const r = await checkDkim(domain, selector || null, resolve);
+            renderDkimReport(target, r);
+            return r.checks;
+        },
+    },
+    dns: {
+        label: 'DNS',
+        run: async (domain, target) => {
+            const r = await checkDnsHealth(domain, resolve);
+            renderDnsHealthReport(target, r);
+            return r.checks;
+        },
+    },
+    report: {
+        label: 'Email security report',
+        noun: 'standard',
+        run: async (domain, target) => {
+            const r = await buildEmailReport(domain, resolve);
+            renderEmailReport(target, r);
+            return reportLineChecks(r);
         },
     },
     bimi: {

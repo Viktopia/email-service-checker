@@ -9,8 +9,11 @@
 
 import type { Check } from './checks.ts';
 import type { Resolve } from './dns.ts';
+import { isNullMx } from './identify.ts';
 import { isIPv4, isIPv6 } from './spf.ts';
 import type { MxRecord } from './types.ts';
+
+export { isNullMx };
 
 export interface MxHost extends MxRecord {
     ipv4: string[];
@@ -25,14 +28,14 @@ export interface MxHealth {
     checks: Check[];
 }
 
-/** RFC 7505: a single MX of "." at priority 0 declares that the domain accepts no mail. */
-export function isNullMx(records: readonly MxRecord[]): boolean {
-    return records.length === 1 && (records[0]!.host === '' || records[0]!.host === '.');
-}
-
-/** Private, loopback, link-local, CGNAT, documentation and other non-routable IPv4 space. */
+/**
+ * Private, loopback, link-local, CGNAT, documentation and other
+ * non-routable IPv4 space (RFC 6890). Only the specific /24s in 192.0.0.0/16
+ * are special: the rest is ordinary allocated space — ICANN's mail servers
+ * and Automattic's (WordPress, Tumblr) live in it.
+ */
 export function isReservedIPv4(ip: string): boolean {
-    const [a, b] = ip.split('.').map(Number) as [number, number];
+    const [a, b, c] = ip.split('.').map(Number) as [number, number, number];
     return (
         a === 0 ||
         a === 10 ||
@@ -41,8 +44,10 @@ export function isReservedIPv4(ip: string): boolean {
         (a === 169 && b === 254) ||
         (a === 172 && b >= 16 && b <= 31) ||
         (a === 192 && b === 168) ||
-        (a === 192 && b === 0) ||
+        (a === 192 && b === 0 && (c === 0 || c === 2)) ||
         (a === 198 && (b === 18 || b === 19)) ||
+        (a === 198 && b === 51 && c === 100) ||
+        (a === 203 && b === 0 && c === 113) ||
         a >= 224
     );
 }

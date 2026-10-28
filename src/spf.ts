@@ -355,6 +355,8 @@ interface WalkState {
     macroTerms: string[];
     mxOverLimit: string[];
     permissiveRanges: string[];
+    /** How many times each include target is reached anywhere in the tree. */
+    includes: Map<string, number>;
     queries: number;
 }
 
@@ -467,7 +469,9 @@ async function walk(
     for (const t of terms) {
         if (t.error) continue;
         if (t.name === 'include' && !hasMacro(t.value)) {
-            follow.push(walk(state, t.value.toLowerCase().replace(/\.$/, ''), 'include', nextPath));
+            const target = t.value.toLowerCase().replace(/\.$/, '');
+            state.includes.set(target, (state.includes.get(target) ?? 0) + 1);
+            follow.push(walk(state, target, 'include', nextPath));
         } else if (t.name === 'a' || t.name === 'mx') {
             probes.push(probeTerm(state, t, domain));
         }
@@ -509,6 +513,7 @@ export async function checkSpf(domain: string, resolve: Resolve): Promise<SpfRep
         macroTerms: [],
         mxOverLimit: [],
         permissiveRanges: [],
+        includes: new Map(),
         queries: 0,
     };
     const checks: Check[] = [];
@@ -684,6 +689,16 @@ export async function checkSpf(domain: string, resolve: Resolve): Promise<SpfRep
                 detail: 'A record with an "all" mechanism never follows its redirect=. Remove one or the other.',
             });
         }
+    }
+
+    const duplicates = [...state.includes].filter(([, n]) => n > 1);
+    if (duplicates.length > 0) {
+        checks.push({
+            id: 'spf-duplicate-include',
+            status: 'warn',
+            title: 'Duplicate include',
+            detail: `${duplicates.map(([d, n]) => `${d} (${n} times)`).join(', ')} ${duplicates.length === 1 ? 'is' : 'are'} included more than once across the record tree. Each copy costs its lookups again for no benefit; remove the extra include.`,
+        });
     }
 
     if (state.usesPtr.length > 0) {

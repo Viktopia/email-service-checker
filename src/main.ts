@@ -1,4 +1,10 @@
-import { consumerLookup, identifyProviders, isValidDomain, normalizeDomain } from './identify.ts';
+import {
+    consumerLookup,
+    identifyProviders,
+    isValidDomain,
+    isValidSelector,
+    normalizeDomain,
+} from './identify.ts';
 import { LookupError, lookupMx } from './lookup.ts';
 import { clearReport, renderError, renderLoading, renderReport, reportSummary } from './render.ts';
 
@@ -29,6 +35,8 @@ const form = document.getElementById('check-form') as HTMLFormElement | null;
 if (form) {
     const tool = (form.dataset.tool ?? 'provider') as Tool;
     const input = document.getElementById('domain') as HTMLInputElement;
+    // Only the DKIM checker has one: selectors cannot be discovered from DNS.
+    const selectorInput = document.getElementById('selector') as HTMLInputElement | null;
     const button = document.getElementById('check-button') as HTMLButtonElement;
     const buttonLabel = document.getElementById('check-button-label') as HTMLSpanElement;
     const result = document.getElementById('result') as HTMLElement;
@@ -48,9 +56,11 @@ if (form) {
         form.classList.toggle('is-busy', busy);
     };
 
-    const syncUrl = (domain: string): void => {
+    const syncUrl = (domain: string, selector: string): void => {
         const url = new URL(window.location.href);
         url.searchParams.set('domain', domain);
+        if (selector) url.searchParams.set('selector', selector);
+        else url.searchParams.delete('selector');
         history.replaceState(null, '', url);
     };
 
@@ -86,11 +96,15 @@ if (form) {
         }
     }
 
-    async function runChecker(kind: Exclude<Tool, 'provider' | 'mx'>, domain: string): Promise<void> {
+    async function runChecker(
+        kind: Exclude<Tool, 'provider' | 'mx'>,
+        domain: string,
+        selector: string,
+    ): Promise<void> {
         const { CHECKERS, checksSummary, verdict } = await loadCheckers();
         const checker = CHECKERS[kind];
-        const checks = await checker.run(domain, result);
-        announce(checksSummary(checker.label, domain, checks));
+        const checks = await checker.run(domain, result, { selector });
+        announce(checksSummary(checker.label, domain, checks, checker.noun));
         track('check_email_security', { domain, tool, verdict: verdict(checks) });
     }
 
@@ -104,7 +118,14 @@ if (form) {
             return;
         }
         input.value = domain;
-        syncUrl(domain);
+        const selector = (selectorInput?.value ?? '').trim().toLowerCase();
+        if (selector && !isValidSelector(selector)) {
+            const message = 'Please enter a valid DKIM selector, or leave it empty to try common ones.';
+            renderError(result, message);
+            announce(message);
+            return;
+        }
+        syncUrl(domain, selector);
         setBusy(true);
         renderLoading(result, domain);
         extra?.replaceChildren();
@@ -112,7 +133,7 @@ if (form) {
 
         try {
             if (tool === 'provider' || tool === 'mx') await runProvider(domain);
-            else await runChecker(tool, domain);
+            else await runChecker(tool, domain, selector);
         } catch (err) {
             const msg =
                 err instanceof LookupError
@@ -139,7 +160,9 @@ if (form) {
         }
     });
 
-    const initialDomain = new URLSearchParams(window.location.search).get('domain');
+    const params = new URLSearchParams(window.location.search);
+    const initialDomain = params.get('domain');
+    if (selectorInput) selectorInput.value = params.get('selector') ?? '';
     if (initialDomain) {
         input.value = initialDomain;
         void runCheck(initialDomain);

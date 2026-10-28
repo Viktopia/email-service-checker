@@ -164,7 +164,7 @@ export const GUIDES: readonly Guide[] = [
         title: 'What DKIM is and how to set it up',
         description:
             'How DKIM signatures work, where the public key lives in DNS, what a selector is, and how to turn DKIM on for the services that send your mail.',
-        tool: { href: '/tools/dmarc-checker/', label: 'Check your DMARC record' },
+        tool: { href: '/tools/dkim-checker/', label: 'Check your DKIM keys' },
         body: `
 <p>DKIM (DomainKeys Identified Mail, RFC 6376) lets a receiver verify that a message was sent by someone authorised by a domain and was not modified in transit. It is the most reliable way to pass DMARC.</p>
 
@@ -212,10 +212,14 @@ export const GUIDES: readonly Guide[] = [
 <pre><code>_dmarc.example.com.  TXT  "v=DMARC1; p=reject;"</code></pre>
 <p>Because nothing legitimate is ever sent, there is no rollout: go straight to <code>p=reject</code>. Add a <code>rua=</code> address if you want to see how often someone tries. The policy also covers subdomains, unless you set <code>sp=</code> otherwise.</p>
 
-<h2>Optionally: wildcard records</h2>
+<h2>Optionally: revoke every DKIM selector</h2>
+<pre><code>*._domainkey.example.com.  TXT  "v=DKIM1; p="</code></pre>
+<p>An empty key revokes it, and the wildcard covers every selector, so no DKIM signature claiming the domain can ever verify. The reserved <code>example.com</code> domain is set up exactly this way.</p>
+
+<h2>Optionally: wildcard SPF</h2>
 <p>Subdomains are covered by the parent's DMARC record, but SPF is not inherited. A spoofer using <code>billing.example.com</code> gets no SPF result, which DMARC <code>p=reject</code> still rejects. If you want SPF to say so explicitly, a wildcard <code>*.example.com TXT "v=spf1 -all"</code> does it, as long as no other TXT records exist under that wildcard.</p>
 
-<p>Check the result with the <a href="/tools/spf-checker/">SPF checker</a>, the <a href="/tools/dmarc-checker/">DMARC checker</a> and the <a href="/mx-lookup/">MX lookup</a>, which recognises a null MX.</p>`,
+<p>Check all of it at once with the <a href="/tools/email-security-report/">email security report</a>, which recognises a null MX and a revoked DKIM wildcard.</p>`,
     },
     {
         slug: 'dmarcbis',
@@ -233,7 +237,7 @@ export const GUIDES: readonly Guide[] = [
 <p>Most existing records keep working. A few things in them now mean something different, or nothing at all.</p>
 
 <h2>Removed: pct, rf and ri</h2>
-<p><code>pct</code> let a domain apply its policy to a percentage of failing mail. In practice receivers implemented it inconsistently, and it is gone. A record with <code>p=quarantine; pct=10</code> is now read by updated receivers as plain <code>p=quarantine</code>: the whole of your failing mail is quarantined, not a tenth of it. <code>rf</code> (report format) and <code>ri</code> (report interval) were removed too; reports have one format and are daily.</p>
+<p><code>pct</code> let a domain apply its policy to a percentage of failing mail. It is gone. A record with <code>p=quarantine; pct=10</code> is now read by updated receivers as plain <code>p=quarantine</code>: the whole of your failing mail is quarantined, not a tenth of it. <code>rf</code> (report format) and <code>ri</code> (report interval) were removed too; reports have one format and are daily.</p>
 
 <h2>New: t, np and psd</h2>
 <ul>

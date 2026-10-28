@@ -141,6 +141,17 @@ describe('checkSpf', () => {
         expect(status(r.checks, 'spf-void-lookups')).toBe('fail');
     });
 
+    test('flags the same include reached twice in the tree', async () => {
+        const zone: Zone = {
+            'example.com': { TXT: ['v=spf1 include:_spf.example.net include:vendor.example -all'] },
+            'vendor.example': { TXT: ['v=spf1 include:_spf.example.net ~all'] },
+            '_spf.example.net': { TXT: ['v=spf1 ip4:192.0.2.1 ~all'] },
+        };
+        const r = await checkSpf('example.com', fakeResolver(zone));
+        expect(status(r.checks, 'spf-duplicate-include')).toBe('warn');
+        expect(r.lookups).toBe(3);
+    });
+
     test('detects include loops instead of following them', async () => {
         const zone: Zone = {
             'example.com': { TXT: ['v=spf1 include:a.example -all'] },

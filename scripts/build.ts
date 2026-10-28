@@ -225,7 +225,20 @@ function toolSection(tool: ToolKey, placeholder = 'example.com or you@example.co
                     autocapitalize="off"
                     spellcheck="false"
                     required
-                    inputmode="email">
+                    inputmode="email">${
+                        tool === 'dkim'
+                            ? `
+                <label for="selector" class="sr-only">DKIM selector (optional)</label>
+                <input
+                    id="selector"
+                    name="selector"
+                    type="text"
+                    class="field-input sm:w-40 min-w-0"
+                    placeholder="selector (optional)"
+                    autocapitalize="off"
+                    spellcheck="false">`
+                            : ''
+                    }
                 <button type="submit" id="check-button" class="btn-primary">
                     <span id="check-button-label">Check</span>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
@@ -243,6 +256,7 @@ const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
     { href: '/mx-lookup/', label: 'MX' },
     { href: toolUrl('spf-checker'), label: 'SPF' },
     { href: toolUrl('dmarc-checker'), label: 'DMARC' },
+    { href: toolUrl('email-security-report'), label: 'Full report' },
     { href: '/tools/', label: 'All tools' },
     { href: '/guides/', label: 'Guides' },
 ];
@@ -313,15 +327,15 @@ function breadcrumbLd(url: string, trail: Array<{ name: string; url: string }>):
 
 /** Cards linking to each checker, shared by the homepage and the tools index. */
 function toolCards(): string {
-    const items = [
-        {
-            href: '/mx-lookup/',
-            name: 'MX Lookup',
-            summary:
-                'Mail servers, priorities and addresses, with checks that each one can actually receive mail.',
-        },
-        ...TOOLS.map((t) => ({ href: toolUrl(t.slug), name: t.name, summary: t.summary })),
-    ];
+    const cards = TOOLS.map((t) => ({ href: toolUrl(t.slug), name: t.name, summary: t.summary }));
+    const mx = {
+        href: '/mx-lookup/',
+        name: 'MX Lookup',
+        summary:
+            'Mail servers, priorities and addresses, with checks that each one can actually receive mail.',
+    };
+    // The all-in-one report leads; the MX lookup sits with the other checkers.
+    const items = [cards[0]!, mx, ...cards.slice(1)];
     return `<ul class="tool-grid">${items
         .map(
             (t) => `

@@ -41,10 +41,14 @@ describe('parseDmarc', () => {
         ['adkim=x', 'adkim'],
         ['t=maybe', 't='],
         ['psd=true', 'psd'],
-        ['fo=0:1', 'mutually exclusive'],
         ['rua=dmarc@example.com', 'not a valid URI'],
     ])('rejects %s', (tag, expected) => {
         expect(parseDmarc(`v=DMARC1; ${tag}`).errors.join(' ')).toContain(expected);
+    });
+    test('contradictory fo is a warning, not a syntax error', () => {
+        const p = parseDmarc('v=DMARC1; p=none; fo=0:1:s');
+        expect(p.errors).toEqual([]);
+        expect(p.warnings.join(' ')).toContain('mutually exclusive');
     });
     test('pct, rf and ri are obsolete, not unknown', () => {
         const w = parseDmarc('v=DMARC1; p=none; pct=50; rf=afrf; ri=86400').warnings.join(' ');

@@ -17,6 +17,9 @@ describe('verdict', () => {
         ];
         expect(verdict(checks)).toBe('manual');
     });
+    test('only notes is info, not a pass', () => {
+        expect(verdict([{ id: 'a', status: 'info', title: '', detail: '' }])).toBe('info');
+    });
 });
 
 describe('MX checks', () => {
@@ -63,6 +66,11 @@ describe('MX checks', () => {
         ['127.0.0.1', true],
         ['8.8.8.8', false],
         ['172.32.0.1', false],
+        ['192.0.2.1', true],
+        ['203.0.113.9', true],
+        // Real, routable addresses in 192.0.0.0/16: ICANN's MX and Automattic's.
+        ['192.0.33.73', false],
+        ['192.0.78.24', false],
     ])('isReservedIPv4(%s) is %s', (ip, expected) => {
         expect(isReservedIPv4(ip)).toBe(expected);
     });
