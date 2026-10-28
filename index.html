@@ -48,41 +48,10 @@
                 <p class="eyebrow">{{HERO_EYEBROW}}</p>
                 <h1 class="display-hero">{{HERO_TITLE}}</h1>
                 <p class="max-w-[44ch] text-ink-muted text-[1.0625rem]">{{HERO_LEDE}}</p>
+                {{NAV}}
             </header>
 
-            <form id="check-form" class="card p-3 sm:p-4 flex flex-col sm:flex-row gap-3" autocomplete="off" novalidate>
-                <label for="domain" class="sr-only">Domain or email</label>
-                <input
-                    id="domain"
-                    name="domain"
-                    type="text"
-                    class="field-input flex-1 min-w-0"
-                    placeholder="example.com or you@example.com"
-                    autocapitalize="off"
-                    spellcheck="false"
-                    required
-                    inputmode="email">
-                <button type="submit" id="check-button" class="btn-primary">
-                    <span id="check-button-label">Check</span>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
-                        <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-            </form>
-
-            <!--
-                The live region has to exist at page load: render.ts used to set
-                aria-live on the report section it injected, which registers the
-                region and its content in the same tick — something screen
-                readers generally do not announce at all.
-
-                It is a separate element from #result, and carries a one-line
-                summary rather than the report itself, so a lookup announces
-                "Google Workspace — mailbox provider, 5 MX records" instead of
-                reading out every hostname in the evidence table.
-            -->
-            <p id="result-status" class="sr-only" role="status" aria-live="polite"></p>
-            <div id="result"></div>
+            {{TOOL_SECTION}}
 
             {{PROFILE_SECTION}}
             {{CONTENT_SECTION}}

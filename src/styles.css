@@ -416,6 +416,7 @@
         border-block-end: 1px solid color-mix(in oklab, var(--color-hairline) 60%, transparent);
     }
     .mx-table tbody tr:last-child td { border-block-end: 0; }
+    .mx-table th + th, .mx-table td + td { padding-inline-start: 1rem; }
     .mx-prio {
         inline-size: 3rem;
         padding-inline-end: 1rem;
@@ -423,6 +424,134 @@
         color: var(--color-ink-muted);
     }
     .mx-host { word-break: break-all; }
+
+    /* Check statuses reuse the category badge, keyed to the palette. */
+    .st-pass   { --cat-color: var(--color-green);     }
+    .st-warn   { --cat-color: var(--color-peach);     }
+    .st-fail   { --cat-color: var(--color-red);       }
+    .st-info   { --cat-color: var(--color-blue);      }
+    .st-manual { --cat-color: var(--color-overlay-1); }
+
+    /* Site navigation: quiet pills under the hero. */
+    .site-nav ul {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.4rem;
+    }
+    .site-nav a {
+        display: inline-flex;
+        align-items: center;
+        block-size: 2rem;
+        padding-inline: 0.8rem;
+        border: 1px solid var(--color-hairline);
+        border-radius: var(--radius-pill);
+        color: var(--color-ink-muted);
+        font-size: 0.85rem;
+        font-weight: 500;
+        transition: color 160ms, border-color 160ms, background 160ms;
+    }
+    .site-nav a:hover {
+        color: var(--color-ink);
+        border-color: var(--color-surface-2);
+        text-decoration: none;
+    }
+    .site-nav a[aria-current="page"] {
+        color: var(--color-ink);
+        border-color: var(--color-accent);
+        background: color-mix(in oklab, var(--color-accent) 10%, transparent);
+    }
+
+    /* A checker's list of tests: badge in a fixed column, text beside it. */
+    .check-list { display: flex; flex-direction: column; gap: 1rem; }
+    .check {
+        display: grid;
+        grid-template-columns: 7.5rem minmax(0, 1fr);
+        gap: 0.35rem 1rem;
+        align-items: start;
+    }
+    .check-badge { padding-block-start: 0.1rem; }
+    .check-title { color: var(--color-ink); font-weight: 600; font-size: 0.98rem; line-height: 1.35; }
+    .check-detail { color: var(--color-ink-muted); font-size: 0.9rem; overflow-wrap: anywhere; }
+    @media (max-width: 30rem) {
+        .check { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    /* A DNS record shown verbatim. */
+    .record {
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        line-height: 1.6;
+        color: var(--color-ink);
+        background: var(--color-field);
+        border: 1px solid var(--color-hairline);
+        border-radius: 10px;
+        padding: 0.75rem 0.9rem;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+    }
+
+    .addr-list { white-space: pre-line; word-break: break-all; }
+
+    /* SPF include tree: nested lists with a drawn guide line. */
+    .spf-tree { display: flex; flex-direction: column; gap: 0.4rem; font-size: 0.85rem; }
+    .spf-tree .spf-tree {
+        margin-block-start: 0.4rem;
+        padding-inline-start: 1rem;
+        border-inline-start: 1px solid var(--color-hairline);
+    }
+    .tree-problem { color: var(--color-ink-muted); font-size: 0.82rem; }
+
+    /* Tool directory, on the homepage and /tools/. */
+    .tool-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+        gap: 0.75rem;
+    }
+    .tool-card {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        block-size: 100%;
+        padding: 1rem 1.1rem;
+        border: 1px solid var(--color-hairline);
+        border-radius: 12px;
+        background: var(--color-page);
+        transition: border-color 160ms, transform 160ms;
+    }
+    .tool-card:hover { border-color: var(--color-accent); text-decoration: none; }
+    .tool-card-name { color: var(--color-ink); font-weight: 600; }
+    .tool-card-summary { color: var(--color-ink-muted); font-size: 0.88rem; line-height: 1.45; }
+
+    /* Long-form guide text. */
+    .guide-body { display: flex; flex-direction: column; gap: 1rem; color: var(--color-ink-muted); font-size: 0.98rem; }
+    .guide-body h2 {
+        font-family: var(--font-display);
+        font-variation-settings: 'wdth' 100, 'wght' 700, 'opsz' 36;
+        font-size: 1.3rem;
+        line-height: 1.2;
+        letter-spacing: -0.01em;
+        color: var(--color-ink);
+        margin-block-start: 0.75rem;
+    }
+    .guide-body strong { color: var(--color-ink); }
+    .guide-body ul { list-style: disc; padding-inline-start: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .guide-body ol { list-style: decimal; padding-inline-start: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem; }
+    .guide-body li::marker { color: var(--color-ink-muted); }
+    .guide-body code {
+        font-family: var(--font-mono);
+        font-size: 0.86em;
+        color: var(--color-ink);
+        overflow-wrap: anywhere;
+    }
+    .guide-body pre {
+        background: var(--color-field);
+        border: 1px solid var(--color-hairline);
+        border-radius: 10px;
+        padding: 0.75rem 0.9rem;
+        overflow-x: auto;
+    }
+    .guide-body pre code { font-size: 0.82rem; overflow-wrap: normal; white-space: pre; }
 
     .report-anim { animation: rise 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both; }
     @keyframes rise {
@@ -472,5 +601,6 @@
     body::before { display: none; }
     body { background: #ffffff; color: #000000; }
     .card { box-shadow: none; border-color: #000000; background: #ffffff; }
-    .eyebrow, .finding-note, .mx-prio, .btn-ghost { color: #333333; }
+    .eyebrow, .finding-note, .mx-prio, .btn-ghost, .check-detail, .guide-body { color: #333333; }
+    .site-nav, #check-form { display: none; }
 }

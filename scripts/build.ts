@@ -23,6 +23,8 @@ import { type ConsumerShard, SHARD_BASE_PATH, SHARD_COUNT, shardIdFor } from '..
 import { DATASET_FILES, type DatasetKind, parseDatasetText, SHARD_KEY } from '../src/datasets.ts';
 import { CATEGORY_LABEL, PROVIDERS, providerSlug } from '../src/providers.ts';
 import type { Provider } from '../src/types.ts';
+import { GUIDES, type Guide, guideUrl } from './guides.ts';
+import { type Faq, TOOLS, type ToolPage, toolUrl } from './tools.ts';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const DIST = join(ROOT, 'dist');
@@ -87,7 +89,10 @@ const build = await Bun.build({
     minify: !serve,
     sourcemap: serve ? 'inline' : 'none',
     target: 'browser',
-    naming: '[name].js',
+    // The checkers are a dynamic import in main.ts, split into a chunk so
+    // pages that only run the provider lookup never download them.
+    splitting: true,
+    naming: { entry: '[name].js', chunk: 'chunks/[name]-[hash].js' },
 });
 if (!build.success) {
     console.error('Build failed:');
@@ -182,9 +187,164 @@ function escapeHtml(s: string): string {
 
 function render(vars: Record<string, string>): string {
     let html = TEMPLATE;
-    for (const [k, v] of Object.entries(vars)) html = html.replaceAll(`{{${k}}}`, v);
+    const all = { NAV: navHtml(new URL(vars.CANONICAL ?? SITE_ORIGIN).pathname), ...vars };
+    for (const [k, v] of Object.entries(all)) html = html.replaceAll(`{{${k}}}`, v);
     html = html.replaceAll('{{YEAR}}', YEAR);
     return html;
+}
+
+// ---- 4a. Shared page furniture --------------------------------------------
+
+type ToolKey = 'provider' | 'mx' | ToolPage['key'];
+
+/**
+ * The form, live region and result containers, for pages that run a check.
+ * Guide and index pages have none, which is why this is a placeholder rather
+ * than fixed markup in index.html. src/main.ts reads `data-tool` to decide
+ * which checker the form runs.
+ *
+ * The live region has to exist at page load: render.ts used to set aria-live
+ * on the report section it injected, which registers the region and its
+ * content in the same tick — something screen readers generally do not
+ * announce at all. It is a separate element from #result, and carries a
+ * one-line summary rather than the report itself, so a lookup announces
+ * "Google Workspace — mailbox provider, 5 MX records" instead of reading out
+ * every hostname in the evidence table.
+ */
+function toolSection(tool: ToolKey, placeholder = 'example.com or you@example.com'): string {
+    // sm:flex-1, not flex-1: in the stacked mobile layout a zero flex-basis
+    // collapsed the input to a sliver, since the column has no spare height.
+    return `<form id="check-form" data-tool="${tool}" class="card p-3 sm:p-4 flex flex-col sm:flex-row gap-3" autocomplete="off" novalidate>
+                <label for="domain" class="sr-only">Domain or email</label>
+                <input
+                    id="domain"
+                    name="domain"
+                    type="text"
+                    class="field-input sm:flex-1 min-w-0"
+                    placeholder="${escapeHtml(placeholder)}"
+                    autocapitalize="off"
+                    spellcheck="false"
+                    required
+                    inputmode="email">
+                <button type="submit" id="check-button" class="btn-primary">
+                    <span id="check-button-label">Check</span>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                        <path d="M1 7h12M8 2l5 5-5 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </button>
+            </form>
+
+            <p id="result-status" class="sr-only" role="status" aria-live="polite"></p>
+            <div id="result"></div>${tool === 'mx' ? '\n            <div id="result-extra"></div>' : ''}`;
+}
+
+const NAV_ITEMS: ReadonlyArray<{ href: string; label: string }> = [
+    { href: '/', label: 'Provider lookup' },
+    { href: '/mx-lookup/', label: 'MX' },
+    { href: toolUrl('spf-checker'), label: 'SPF' },
+    { href: toolUrl('dmarc-checker'), label: 'DMARC' },
+    { href: '/tools/', label: 'All tools' },
+    { href: '/guides/', label: 'Guides' },
+];
+
+/** Site navigation under the hero. The current section is marked for assistive tech and styled from it. */
+function navHtml(path: string): string {
+    // An exact match wins, so /tools/spf-checker/ marks "SPF" and not also
+    // "All tools"; failing that, the section the page sits in.
+    const exact = NAV_ITEMS.some((n) => n.href === path);
+    const current = (href: string) =>
+        href === path ||
+        (href === '/' && path.startsWith('/provider/')) ||
+        (!exact && href !== '/' && path.startsWith(href));
+    return `<nav aria-label="Tools" class="site-nav">
+                    <ul>${NAV_ITEMS.map(
+                        (n) =>
+                            `<li><a href="${n.href}"${current(n.href) ? ' aria-current="page"' : ''}>${escapeHtml(n.label)}</a></li>`,
+                    ).join('')}</ul>
+                </nav>`;
+}
+
+function faqSection(id: string, heading: string, faq: readonly Faq[]): string {
+    return `
+        <section class="card p-6 sm:p-8 flex flex-col gap-6" aria-labelledby="${id}">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">FAQ</p>
+                <h2 id="${id}" class="display-name">${escapeHtml(heading)}</h2>
+            </div>${faq
+                .map(
+                    ({ q, a }) => `
+                <div class="flex flex-col gap-1.5">
+                    <h3 class="text-ink font-semibold text-[1.05rem]">${escapeHtml(q)}</h3>
+                    <p class="text-ink-muted text-[0.95rem]">${escapeHtml(a)}</p>
+                </div>`,
+                )
+                .join('')}
+        </section>`;
+}
+
+function faqLd(url: string, faq: readonly Faq[]): Record<string, unknown> {
+    return {
+        '@type': 'FAQPage',
+        '@id': `${url}#faq`,
+        inLanguage: 'en',
+        isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+        mainEntity: faq.map(({ q, a }) => ({
+            '@type': 'Question',
+            name: q,
+            acceptedAnswer: { '@type': 'Answer', text: a },
+        })),
+    };
+}
+
+function breadcrumbLd(url: string, trail: Array<{ name: string; url: string }>): Record<string, unknown> {
+    return {
+        '@type': 'BreadcrumbList',
+        '@id': `${url}#breadcrumb`,
+        itemListElement: [{ name: 'Email Service Checker', url: `${SITE_ORIGIN}/` }, ...trail].map(
+            (t, i) => ({
+                '@type': 'ListItem',
+                position: i + 1,
+                name: t.name,
+                item: t.url,
+            }),
+        ),
+    };
+}
+
+/** Cards linking to each checker, shared by the homepage and the tools index. */
+function toolCards(): string {
+    const items = [
+        {
+            href: '/mx-lookup/',
+            name: 'MX Lookup',
+            summary:
+                'Mail servers, priorities and addresses, with checks that each one can actually receive mail.',
+        },
+        ...TOOLS.map((t) => ({ href: toolUrl(t.slug), name: t.name, summary: t.summary })),
+    ];
+    return `<ul class="tool-grid">${items
+        .map(
+            (t) => `
+                <li><a class="tool-card" href="${t.href}">
+                    <span class="tool-card-name">${escapeHtml(t.name)}</span>
+                    <span class="tool-card-summary">${escapeHtml(t.summary)}</span>
+                </a></li>`,
+        )
+        .join('')}
+            </ul>`;
+}
+
+function guideList(guides: readonly Guide[]): string {
+    return `<ul class="flex flex-col gap-4">${guides
+        .map(
+            (g) => `
+                <li class="flex flex-col gap-1">
+                    <a class="text-[1.05rem] font-semibold" href="${guideUrl(g.slug)}">${escapeHtml(g.title)}</a>
+                    <span class="text-ink-muted text-[0.95rem]">${escapeHtml(g.description)}</span>
+                </li>`,
+        )
+        .join('')}
+            </ul>`;
 }
 
 const PUBLISHER_LD = {
@@ -277,6 +437,9 @@ const WEBAPP_LD = {
         'MX record lookup with priorities',
         `Identifies ${PROVIDERS.length} mailbox providers, security gateways, forwarders and relays`,
         'Flags free, disposable and alias mailbox domains',
+        'SPF record validation with DNS and void lookup counting',
+        'DMARC validation against RFC 9989',
+        'MTA-STS, TLS-RPT, DANE and BIMI checks',
         'Runs entirely in the browser over public DNS',
         'No sign-in and no data stored',
     ],
@@ -501,6 +664,16 @@ function homeContentSection(): string {
             <p class="text-ink-muted text-[0.95rem]">If you would rather read the records than the verdict, the <a href="/mx-lookup/">MX lookup</a> shows the same result with the mail exchangers and their priorities up front.</p>
         </section>
 
+        <section class="card p-6 sm:p-8 flex flex-col gap-5" aria-labelledby="security-heading">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">Email security</p>
+                <h2 id="security-heading" class="display-name">How securely is it configured?</h2>
+            </div>
+            <p class="text-ink-muted">Knowing who runs a domain's mail is half the picture. These checks read the rest of its public DNS to show whether its email can be spoofed, and whether it can be delivered securely. Like the lookup above, they run in your browser.</p>
+            ${toolCards()}
+            <p class="text-ink-muted text-[0.95rem]">New to this? Start with <a href="${guideUrl('spf-dkim-dmarc-explained')}">SPF, DKIM and DMARC explained</a>, or browse all <a href="/guides/">email security guides</a>.</p>
+        </section>
+
         <section class="card p-6 sm:p-8 flex flex-col gap-6" aria-labelledby="faq-heading">
             <div class="flex flex-col gap-1">
                 <p class="eyebrow">FAQ</p>
@@ -531,6 +704,7 @@ writeFileSync(
         HERO_TITLE: 'Email provider <em>lookup</em> for any domain',
         HERO_LEDE:
             "What's actually handling the mail? Type a domain or email address and we'll check which service runs it, straight from public MX records: Google, Microsoft, Proton, Apple, and 160+ others.",
+        TOOL_SECTION: toolSection('provider'),
         PROFILE_SECTION: '',
         CONTENT_SECTION: homeContentSection(),
     }),
@@ -567,6 +741,7 @@ for (const p of PROVIDERS) {
             HERO_EYEBROW: escapeHtml(CATEGORY_LABEL[p.category]),
             HERO_TITLE: `${escapeHtml(p.name)} <em>MX records</em>`,
             HERO_LEDE: `${p.name} is ${categoryArticle(p.category)} ${CATEGORY_LABEL[p.category].toLowerCase()}. Type any domain below to see if its email runs through ${p.name}.`,
+            TOOL_SECTION: toolSection('provider'),
             PROFILE_SECTION: profileSection(p),
             CONTENT_SECTION: '',
         }),
@@ -701,10 +876,261 @@ writeFileSync(
         HERO_TITLE: 'Check the <em>MX records</em> for any domain',
         HERO_LEDE:
             'Enter a domain or email address to look up its MX records over public DNS. You get every mail exchanger with its priority, and the service they point to.',
+        TOOL_SECTION: toolSection('mx'),
         PROFILE_SECTION: '',
         CONTENT_SECTION: mxContentSection(),
     }),
 );
+
+// ---- 6c. Emit the email security tools -------------------------------------
+
+// Shared with the sitemap: a tool page changes when its definition, the
+// checkers behind it, or the template do.
+const TOOLS_MODIFIED = gitLastModified('scripts/tools.ts', 'src', 'index.html');
+const GUIDES_MODIFIED = gitLastModified('scripts/guides.ts', 'index.html', 'src/styles.css');
+
+function relatedGuidesHtml(slugs: readonly string[]): string {
+    const related = slugs.map((s) => GUIDES.find((g) => g.slug === s)).filter((g): g is Guide => !!g);
+    if (related.length === 0) return '';
+    return `
+        <section class="card p-6 sm:p-8 flex flex-col gap-5">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">Guides</p>
+                <h2 class="display-name">Learn more</h2>
+            </div>
+            ${guideList(related)}
+        </section>`;
+}
+
+for (const t of TOOLS) {
+    const url = `${SITE_ORIGIN}${toolUrl(t.slug)}`;
+    const ld = JSON.stringify({
+        '@context': 'https://schema.org',
+        '@graph': [
+            PUBLISHER_LD,
+            WEBSITE_LD,
+            breadcrumbLd(url, [
+                { name: 'Tools', url: `${SITE_ORIGIN}/tools/` },
+                { name: t.name, url },
+            ]),
+            {
+                '@type': 'WebApplication',
+                '@id': `${url}#webapp`,
+                name: t.name,
+                url,
+                applicationCategory: 'SecurityApplication',
+                operatingSystem: 'Any',
+                browserRequirements: 'Requires JavaScript',
+                inLanguage: 'en',
+                isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+                publisher: { '@id': `${SITE_ORIGIN}/#publisher` },
+                description: t.description,
+                offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+            },
+            {
+                '@type': 'WebPage',
+                '@id': `${url}#webpage`,
+                url,
+                name: t.name,
+                description: t.description,
+                inLanguage: 'en',
+                isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+                breadcrumb: { '@id': `${url}#breadcrumb` },
+                mainEntity: { '@id': `${url}#webapp` },
+            },
+            faqLd(url, t.faq),
+        ],
+    });
+
+    const dir = join(DIST, 'tools', t.slug);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+        join(dir, 'index.html'),
+        render({
+            TITLE: t.title,
+            DESCRIPTION: t.description,
+            CANONICAL: url,
+            OG_TITLE: t.title,
+            OG_DESCRIPTION: t.description,
+            JSON_LD: ld,
+            BREADCRUMBS: breadcrumbHtml([
+                { name: 'Home', href: '/' },
+                { name: 'Tools', href: '/tools/' },
+                { name: t.name },
+            ]),
+            HERO_EYEBROW: escapeHtml(t.name),
+            HERO_TITLE: t.heroTitle,
+            HERO_LEDE: escapeHtml(t.heroLede),
+            TOOL_SECTION: toolSection(t.key, t.placeholder),
+            PROFILE_SECTION: '',
+            CONTENT_SECTION: `
+        <section class="card p-6 sm:p-8 flex flex-col gap-5">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">Guide</p>
+                <h2 class="display-name">${escapeHtml(t.guideHeading)}</h2>
+            </div>
+            <div class="guide-body">${t.guideHtml}</div>
+        </section>
+${faqSection(`${t.key}-faq-heading`, `${t.name.replace(/ Checker$/, '')}: common questions`, t.faq)}
+${relatedGuidesHtml(t.guides)}`,
+        }),
+    );
+}
+
+// The tools index. No form: it is a directory of the checkers above.
+const TOOLS_URL = `${SITE_ORIGIN}/tools/`;
+mkdirSync(join(DIST, 'tools'), { recursive: true });
+writeFileSync(
+    join(DIST, 'tools', 'index.html'),
+    render({
+        TITLE: 'Email Security Tools: SPF, DMARC, MTA-STS, DANE and BIMI Checkers',
+        DESCRIPTION:
+            "Free browser-based checks for a domain's email security: MX lookup, SPF, DMARC (RFC 9989), MTA-STS, TLS-RPT, DNSSEC and DANE, and BIMI. No sign-up.",
+        CANONICAL: TOOLS_URL,
+        OG_TITLE: 'Email Security Tools',
+        OG_DESCRIPTION: "Check how securely any domain's email is configured, straight from public DNS.",
+        JSON_LD: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@graph': [
+                PUBLISHER_LD,
+                WEBSITE_LD,
+                breadcrumbLd(TOOLS_URL, [{ name: 'Tools', url: TOOLS_URL }]),
+                {
+                    '@type': 'CollectionPage',
+                    '@id': `${TOOLS_URL}#webpage`,
+                    url: TOOLS_URL,
+                    name: 'Email Security Tools',
+                    inLanguage: 'en',
+                    isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+                    breadcrumb: { '@id': `${TOOLS_URL}#breadcrumb` },
+                },
+            ],
+        }),
+        BREADCRUMBS: breadcrumbHtml([{ name: 'Home', href: '/' }, { name: 'Tools' }]),
+        HERO_EYEBROW: 'Email security tools',
+        HERO_TITLE: 'How securely is a domain’s <em>email</em> configured?',
+        HERO_LEDE:
+            'Each check reads public DNS from your browser and explains what it finds. Nothing is stored, and there is nothing to sign up for.',
+        TOOL_SECTION: '',
+        PROFILE_SECTION: '',
+        CONTENT_SECTION: `
+        <section class="card p-6 sm:p-8 flex flex-col gap-5">
+            ${toolCards()}
+        </section>
+        <section class="card p-6 sm:p-8 flex flex-col gap-4">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">What a browser can and cannot check</p>
+                <h2 class="display-name">Honest results</h2>
+            </div>
+            <p class="text-ink-muted text-[0.95rem]">SPF, DMARC, TLS-RPT, BIMI and the DNS halves of MTA-STS and DANE are public DNS records, and are checked in full. Some things are not visible from a web page: DKIM keys sit under selectors that cannot be listed, MTA-STS policy files and BIMI certificates are usually served without the headers a browser needs to read them, and a TLSA record can only be matched against a certificate over an SMTP connection. Those are marked <strong>Not verifiable</strong> rather than counted as passing.</p>
+        </section>`,
+    }),
+);
+
+// ---- 6d. Emit the guides ------------------------------------------------------
+
+const GUIDES_URL = `${SITE_ORIGIN}/guides/`;
+mkdirSync(join(DIST, 'guides'), { recursive: true });
+writeFileSync(
+    join(DIST, 'guides', 'index.html'),
+    render({
+        TITLE: 'Email Security Guides: SPF, DKIM, DMARC, MTA-STS and More',
+        DESCRIPTION:
+            'Practical guides to securing a domain’s email: SPF, DKIM and DMARC, the 2026 DMARC revision, MTA-STS and TLS-RPT, DKIM2, and locking down domains that send no mail.',
+        CANONICAL: GUIDES_URL,
+        OG_TITLE: 'Email Security Guides',
+        OG_DESCRIPTION: 'Learn how to secure domain email, one standard at a time.',
+        JSON_LD: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@graph': [
+                PUBLISHER_LD,
+                WEBSITE_LD,
+                breadcrumbLd(GUIDES_URL, [{ name: 'Guides', url: GUIDES_URL }]),
+                {
+                    '@type': 'CollectionPage',
+                    '@id': `${GUIDES_URL}#webpage`,
+                    url: GUIDES_URL,
+                    name: 'Email Security Guides',
+                    inLanguage: 'en',
+                    isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+                    breadcrumb: { '@id': `${GUIDES_URL}#breadcrumb` },
+                },
+            ],
+        }),
+        BREADCRUMBS: breadcrumbHtml([{ name: 'Home', href: '/' }, { name: 'Guides' }]),
+        HERO_EYEBROW: 'Guides',
+        HERO_TITLE: 'Email <em>security</em> guides',
+        HERO_LEDE: 'How to stop your domain being spoofed, and make sure mail to it arrives securely.',
+        TOOL_SECTION: '',
+        PROFILE_SECTION: '',
+        CONTENT_SECTION: `
+        <section class="card p-6 sm:p-8 flex flex-col gap-5">
+            ${guideList(GUIDES)}
+        </section>`,
+    }),
+);
+
+for (const g of GUIDES) {
+    const url = `${SITE_ORIGIN}${guideUrl(g.slug)}`;
+    const dir = join(DIST, 'guides', g.slug);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+        join(dir, 'index.html'),
+        render({
+            TITLE: `${g.title} | Email Service Checker`,
+            DESCRIPTION: g.description,
+            CANONICAL: url,
+            OG_TITLE: g.title,
+            OG_DESCRIPTION: g.description,
+            JSON_LD: JSON.stringify({
+                '@context': 'https://schema.org',
+                '@graph': [
+                    PUBLISHER_LD,
+                    WEBSITE_LD,
+                    breadcrumbLd(url, [
+                        { name: 'Guides', url: GUIDES_URL },
+                        { name: g.title, url },
+                    ]),
+                    {
+                        '@type': 'TechArticle',
+                        '@id': `${url}#article`,
+                        headline: g.title,
+                        description: g.description,
+                        url,
+                        inLanguage: 'en',
+                        dateModified: GUIDES_MODIFIED,
+                        author: { '@id': `${SITE_ORIGIN}/#publisher` },
+                        publisher: { '@id': `${SITE_ORIGIN}/#publisher` },
+                        isPartOf: { '@id': `${SITE_ORIGIN}/#website` },
+                        mainEntityOfPage: url,
+                        breadcrumb: { '@id': `${url}#breadcrumb` },
+                    },
+                ],
+            }),
+            BREADCRUMBS: breadcrumbHtml([
+                { name: 'Home', href: '/' },
+                { name: 'Guides', href: '/guides/' },
+                { name: g.title },
+            ]),
+            HERO_EYEBROW: 'Guide',
+            HERO_TITLE: escapeHtml(g.title),
+            HERO_LEDE: escapeHtml(g.description),
+            TOOL_SECTION: '',
+            PROFILE_SECTION: '',
+            CONTENT_SECTION: `
+        <article class="card p-6 sm:p-8 flex flex-col gap-5">
+            <div class="guide-body">${g.body}</div>
+            <p class="pt-4 border-t border-crust"><a class="btn-primary inline-flex" href="${g.tool.href}">${escapeHtml(g.tool.label)}</a></p>
+        </article>
+        <section class="card p-6 sm:p-8 flex flex-col gap-5">
+            <div class="flex flex-col gap-1">
+                <p class="eyebrow">More guides</p>
+            </div>
+            ${guideList(GUIDES.filter((o) => o.slug !== g.slug))}
+        </section>`,
+        }),
+    );
+}
 
 // ---- 7. Sitemap + robots --------------------------------------------------
 
@@ -722,6 +1148,20 @@ const HOMEPAGE_MODIFIED = gitLastModified(
 const sitemapUrls = [
     { loc: `${SITE_ORIGIN}/`, priority: '1.0', change: 'weekly', lastmod: HOMEPAGE_MODIFIED },
     { loc: MX_URL, priority: '0.9', change: 'monthly', lastmod: HOMEPAGE_MODIFIED },
+    { loc: TOOLS_URL, priority: '0.8', change: 'monthly', lastmod: TOOLS_MODIFIED },
+    ...TOOLS.map((t) => ({
+        loc: `${SITE_ORIGIN}${toolUrl(t.slug)}`,
+        priority: '0.9',
+        change: 'monthly',
+        lastmod: TOOLS_MODIFIED,
+    })),
+    { loc: GUIDES_URL, priority: '0.7', change: 'monthly', lastmod: GUIDES_MODIFIED },
+    ...GUIDES.map((g) => ({
+        loc: `${SITE_ORIGIN}${guideUrl(g.slug)}`,
+        priority: '0.7',
+        change: 'monthly',
+        lastmod: GUIDES_MODIFIED,
+    })),
     ...PROVIDERS.map((p) => ({
         loc: `${SITE_ORIGIN}/provider/${providerSlug(p)}/`,
         priority: '0.7',
@@ -772,8 +1212,9 @@ writeFileSync(
     `# Email Service Checker
 
 > Identifies which email provider, security gateway, or forwarder handles a
-> domain's mail by reading its public MX records. No sign-in, no data stored —
-> the lookup runs in the browser against public DNS.
+> domain's mail by reading its public MX records, and checks how securely it
+> is configured: SPF, DMARC, MTA-STS, TLS-RPT, DANE and BIMI. No sign-in, no
+> data stored — everything runs in the browser against public DNS.
 
 Enter any domain or email address and the checker resolves its MX records and
 matches them against ${PROVIDERS.length} known services. It also flags domains that appear in the
@@ -783,7 +1224,19 @@ open free-mailbox (${datasetCounts.free.toLocaleString('en-US')} domains) and di
 ## Pages
 
 - [Home — check any domain](${SITE_ORIGIN}/): the checker itself, plus answers to common questions about finding a domain's email provider.
-- [MX lookup](${MX_URL}): the same lookup read records-first, listing every mail exchanger with its priority, plus answers to common questions about MX records.
+- [MX lookup](${MX_URL}): the same lookup read records-first, listing every mail exchanger with its priority and checking that each can receive mail, plus answers to common questions about MX records.
+
+## Email security tools
+
+Each runs in the browser against public DNS. What a browser cannot see (DKIM keys without a selector, MTA-STS policy files and BIMI certificates served without CORS, TLSA matches over SMTP) is reported as not verifiable rather than passed.
+
+- [All tools](${TOOLS_URL}): index of the checkers below.
+${TOOLS.map((t) => `- [${t.name}](${SITE_ORIGIN}${toolUrl(t.slug)}): ${t.summary}`).join('\n')}
+
+## Guides
+
+- [All guides](${GUIDES_URL}): index of the guides below.
+${GUIDES.map((g) => `- [${g.title}](${SITE_ORIGIN}${guideUrl(g.slug)}): ${g.description}`).join('\n')}
 ${[...providersByCategory.entries()]
     .map(
         ([category, list]) => `
@@ -810,7 +1263,7 @@ const total = readdirSync(DIST, { recursive: true })
     .reduce((a, b) => a + b, 0);
 
 console.log(
-    `Built ${(total / 1024).toFixed(1)} kB — ${PROVIDERS.length} provider pages + MX lookup + sitemap → ${DIST}`,
+    `Built ${(total / 1024).toFixed(1)} kB — ${PROVIDERS.length} provider pages + MX lookup + ${TOOLS.length} tools + ${GUIDES.length} guides + sitemap → ${DIST}`,
 );
 
 if (serve) {

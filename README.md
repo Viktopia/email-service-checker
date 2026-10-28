@@ -4,7 +4,8 @@
 
 A static web tool that identifies which provider, security gateway, or
 forwarder handles a domain's email — derived from public MX records via
-DNS over HTTPS. Live at <https://emailservicechecker.com>.
+DNS over HTTPS — and checks how securely that email is configured. Live at
+<https://emailservicechecker.com>.
 
 ## What's detected
 
@@ -23,6 +24,38 @@ Plus three datasets, committed under `data/`:
   throwaway mailbox providers.
 - `data/alias-domains.txt` — 18 alias / forwarding domains, hand-curated.
 
+## Email security checks
+
+Everything runs in the browser: the site is static, so there is no server to
+check from. Each checker is a pure function over an injected DNS resolver
+(`src/dns.ts`), which is how the tests run them against a fake zone.
+
+| Page                       | Checks                                                                                           |
+| -------------------------- | ------------------------------------------------------------------------------------------------ |
+| `/mx-lookup/`              | Every MX host resolves; no IP literals, CNAMEs, private addresses or duplicates; null MX; IPv6    |
+| `/tools/spf-checker/`      | One record, syntax, 10 DNS lookups and 2 void lookups across the include tree, `all`, `ptr`, loops |
+| `/tools/dmarc-checker/`    | RFC 9989: DNS tree walk discovery, obsolete `pct`/`rf`/`ri`, `t=`, `sp=`/`np=`, report authorisation |
+| `/tools/mta-sts-checker/`  | `_mta-sts` record, policy host over HTTPS, policy file, mode, `max_age`, MX coverage             |
+| `/tools/tls-rpt-checker/`  | `_smtp._tls` record and its `mailto:`/`https:` destinations                                      |
+| `/tools/dane-checker/`     | DNSSEC (from the resolvers' AD bit, or SERVFAIL), TLSA at `_25._tcp.<mx>`, usages, coverage      |
+| `/tools/bimi-checker/`     | `default._bimi` record and the DMARC enforcement BIMI requires                                   |
+
+Some things are not visible from a web page, and are reported as **Not
+verifiable** rather than passed, so a report never reads as all-clear on the
+strength of the parts it could see:
+
+- DKIM keys sit under selectors that cannot be listed from DNS.
+- MTA-STS policy files and BIMI certificates are usually served without CORS
+  headers. The MTA-STS checker still makes an opaque request, which tells it
+  whether the host answers over HTTPS with a trusted certificate.
+- Matching a TLSA record against a certificate needs an SMTP connection.
+
+The checkers are a dynamic import in `src/main.ts`, split into their own
+chunk, so the homepage and provider pages never download them.
+
+Guides live in `scripts/guides.ts` and the tool pages' copy and FAQs in
+`scripts/tools.ts`; both are rendered at build time.
+
 ## Stack
 
 - **Bun** — package manager, bundler, test runner, dev server.
@@ -33,7 +66,8 @@ Plus three datasets, committed under `data/`:
   JetBrains Mono are self-hosted via `@fontsource-variable` packages and
   copied into `dist/fonts/` at build time. No CDN font traffic.
 - **Biome** for lint and formatting.
-- **DNS over HTTPS** via `dns.google` for MX lookups.
+- **DNS over HTTPS** via `dns.google`, falling back to Cloudflare, for every
+  lookup.
 - **GitHub Pages** for hosting, deployed by `.github/workflows/deploy.yml`.
 
 ## Develop
@@ -119,7 +153,8 @@ opens a PR, so an upstream change arrives as a reviewable diff.
 At build time the lists are split into 256 JSON shards under
 `dist/data/consumer/`, and the browser fetches only the shard the queried
 domain hashes into — about 800 bytes, in parallel with the DNS lookup.
-Inlining them cost 203 kB of a 224 kB `main.js`; `main.js` is now 24 kB.
+Inlining them cost 203 kB of a 224 kB `main.js`; the provider lookup now
+loads about 28 kB.
 `src/consumer-shards.ts` holds the hash, imported by both the build and the
 runtime so the two cannot disagree about it.
 
@@ -137,8 +172,13 @@ date, which is the meaningless signal this replaced.
 ```
 .
 ├── src/
-│   ├── main.ts              – entry, wires form → lookup → render
-│   ├── lookup.ts            – DoH MX lookup
+│   ├── main.ts              – entry, wires form → lookup or checker → render
+│   ├── dns.ts               – DoH resolver with fallback, TXT parsing
+│   ├── lookup.ts            – MX lookup
+│   ├── checkers.ts          – lazily loaded registry of the checkers below
+│   ├── spf.ts, dmarc.ts, mta-sts.ts, tls-rpt.ts, dane.ts, bimi.ts, mx-health.ts
+│   ├── checks.ts            – the Check result shape shared by every checker
+│   ├── render-checks.ts     – DOM rendering of checker reports
 │   ├── identify.ts          – provider matcher + consumer-domain check
 │   ├── render.ts            – DOM rendering of the report
 │   ├── providers.ts         – curated MX → provider mapping (161)
@@ -149,6 +189,8 @@ date, which is the meaningless signal this replaced.
 ├── data/                    – committed domain lists (see above)
 ├── scripts/
 │   ├── build.ts             – bundles TS, emits pages, shards, sitemap
+│   ├── tools.ts             – copy and FAQs for the /tools/ pages
+│   ├── guides.ts            – the /guides/ articles
 │   ├── refresh-datasets.ts  – refreshes data/ from upstream
 │   ├── verify-build.ts      – checks over dist/
 │   └── discover-providers.ts – dev helper for finding new providers

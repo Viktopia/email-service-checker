@@ -1,7 +1,7 @@
 import { CATEGORY_LABEL, CATEGORY_NOTE, providerSlug } from './providers.ts';
 import type { ConsumerHit, Finding, MxRecord } from './types.ts';
 
-function el<K extends keyof HTMLElementTagNameMap>(
+export function el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
     attrs: Partial<Record<string, string>> = {},
     ...children: (Node | string)[]
@@ -16,7 +16,7 @@ function el<K extends keyof HTMLElementTagNameMap>(
     return node;
 }
 
-function reportNumber(domain: string): string {
+export function reportNumber(domain: string): string {
     let h = 2166136261;
     for (const ch of domain) {
         h ^= ch.charCodeAt(0);
@@ -25,7 +25,7 @@ function reportNumber(domain: string): string {
     return (h >>> 0).toString(36).toUpperCase().padStart(7, '0').slice(0, 7);
 }
 
-const CARD = 'card report-anim p-6 sm:p-8 flex flex-col';
+export const CARD = 'card report-anim p-6 sm:p-8 flex flex-col';
 
 function categoryBadge(category: Finding['provider']['category']): HTMLElement {
     return el('span', { class: `cat-badge cat-${category}` }, CATEGORY_LABEL[category]);
@@ -79,7 +79,7 @@ function mxTable(mxRecords: readonly MxRecord[]): HTMLElement {
     return wrap;
 }
 
-function shareButton(domain: string): HTMLButtonElement {
+export function shareButton(domain: string): HTMLButtonElement {
     const btn = el('button', { type: 'button', class: 'btn-ghost' }, 'Copy share link');
     btn.addEventListener('click', async () => {
         const url = new URL(window.location.href);
