@@ -47,9 +47,11 @@ export async function checkBimi(domain: string, resolve: Resolve, selector = 'de
         problems.length > 0
             ? {
                   id: 'bimi-dmarc',
-                  status: 'fail',
+                  // Only an error for a domain that actually publishes BIMI;
+                  // otherwise it is what stands between it and a logo.
+                  status: records.length > 0 ? 'fail' : 'info',
                   title: 'DMARC does not meet BIMI requirements',
-                  detail: `BIMI needs DMARC at quarantine or reject, applied to all mail. Here ${problems.join(', ')}. No provider will show the logo until that is fixed.`,
+                  detail: `BIMI needs DMARC at quarantine or reject, applied to all mail. Here ${problems.join(', ')}. No provider will show a logo until that is fixed.`,
               }
             : {
                   id: 'bimi-dmarc',

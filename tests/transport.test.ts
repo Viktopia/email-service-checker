@@ -237,6 +237,12 @@ describe('BIMI', () => {
         expect(status(r.checks, 'bimi-dmarc')).toBe('pass');
         expect(status(r.checks, 'bimi-vmc')).toBe('manual');
     });
+    test('without a BIMI record, weak DMARC is a note rather than an error', async () => {
+        const zone: Zone = { '_dmarc.example.com': { TXT: ['v=DMARC1; p=none'] } };
+        const r = await checkBimi('example.com', fakeResolver(zone));
+        expect(status(r.checks, 'bimi-dmarc')).toBe('info');
+        expect(verdict(r.checks)).toBe('info');
+    });
     test('flags a non-https logo', async () => {
         const zone: Zone = {
             'default._bimi.example.com': { TXT: ['v=BIMI1; l=http://example.com/logo.svg'] },
