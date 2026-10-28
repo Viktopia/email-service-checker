@@ -6,6 +6,9 @@ dist/
 scripts/.mx-cache.json
 scripts/.discoveries.txt
 
+# Cross-check output (dev only)
+.crosscheck/
+
 # Editor / OS cruft
 *.swp
 *.pyc

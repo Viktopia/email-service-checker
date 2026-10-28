@@ -2,6 +2,7 @@ import { describe, expect, test } from 'bun:test';
 import { checkBimi } from '../src/bimi.ts';
 import { type Check, verdict } from '../src/checks.ts';
 import { checkDane, parseTlsa } from '../src/dane.ts';
+import { isDnssecFailure, parseFailure } from '../src/dns.ts';
 import { checkMtaSts, type FetchPolicy, mxMatches, parseStsPolicy } from '../src/mta-sts.ts';
 import { checkMx, isReservedIPv4 } from '../src/mx-health.ts';
 import { checkTlsRpt } from '../src/tls-rpt.ts';
@@ -165,6 +166,35 @@ describe('TLS-RPT', () => {
     });
 });
 
+describe('resolver failure reasons', () => {
+    test('reads Google’s extended_dns_errors', () => {
+        const f = parseFailure({
+            Status: 2,
+            Comment: 'DNSSEC validation failure.',
+            extended_dns_errors: [{ info_code: 9, extra_text: 'No DNSKEY matches DS RRs' }],
+        });
+        expect(f).toEqual({ codes: [9], text: 'No DNSKEY matches DS RRs' });
+        expect(isDnssecFailure(f)).toBe(true);
+    });
+    test('reads Cloudflare’s EDE comments', () => {
+        const f = parseFailure({
+            Status: 2,
+            Comment: ['EDE(9): DNSKEY Missing no SEP matching the DS found'],
+        });
+        expect(f?.codes).toEqual([9]);
+        expect(isDnssecFailure(f)).toBe(true);
+    });
+    test('a lame delegation is not a DNSSEC failure', () => {
+        const f = parseFailure({
+            Status: 2,
+            Comment: 'Lame delegation to name server [173.0.137.5].',
+            extended_dns_errors: [{ info_code: 22, extra_text: 'Lame delegation at invalid.com' }],
+        });
+        expect(isDnssecFailure(f)).toBe(false);
+        expect(f?.text).toContain('Lame delegation');
+    });
+});
+
 describe('DANE', () => {
     test('parses both resolvers’ TLSA formats', () => {
         const hex = '38a88126a15ae8e643ce9447c3ce9a874ea0e05255d07ee12227809edbe5c7f1';
@@ -211,9 +241,25 @@ describe('DANE', () => {
         expect(status(r.checks, 'dane-usage')).toBe('warn');
     });
 
-    test('SERVFAIL means a broken chain', async () => {
-        const r = await checkDane('example.com', [], fakeResolver({ 'example.com': { servfail: true } }));
+    test('a SERVFAIL the resolver attributes to DNSSEC is a broken chain', async () => {
+        const r = await checkDane(
+            'example.com',
+            [],
+            fakeResolver({ 'example.com': { servfail: true, ede: 9 } }),
+        );
         expect(status(r.checks, 'dnssec')).toBe('fail');
+        expect(r.checks.find((c) => c.id === 'dnssec')?.title).toBe('DNSSEC validation fails');
+    });
+
+    test('any other SERVFAIL, such as a lame delegation, is not blamed on DNSSEC', async () => {
+        const r = await checkDane(
+            'example.com',
+            [],
+            fakeResolver({ 'example.com': { servfail: true, ede: 22 } }),
+        );
+        expect(r.checks.find((c) => c.id === 'dnssec')?.title).toBe('Resolution fails (SERVFAIL)');
+        const bare = await checkDane('example.com', [], fakeResolver({ 'example.com': { servfail: true } }));
+        expect(bare.checks.find((c) => c.id === 'dnssec')?.title).toBe('Resolution fails (SERVFAIL)');
     });
 });
 

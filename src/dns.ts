@@ -15,10 +15,48 @@ export interface DnsAnswer {
     data: string;
 }
 
-interface DnsJson {
+export interface DnsJson {
     Status: number;
     AD?: boolean;
     Answer?: DnsAnswer[];
+    /** Google: a sentence. Cloudflare: an array of "EDE(n): text" strings. */
+    Comment?: string | string[];
+    /** Google's Extended DNS Errors (RFC 8914). */
+    extended_dns_errors?: Array<{ info_code: number; extra_text?: string }>;
+}
+
+/** Why a resolver failed an answer, from its Extended DNS Errors (RFC 8914). */
+export interface DnsFailure {
+    codes: number[];
+    text: string;
+}
+
+/**
+ * EDE codes 6-12 are DNSSEC failures: bogus, expired or not-yet-valid
+ * signatures, a missing DNSKEY, RRSIG or NSEC, no zone key bit. Anything else
+ * behind a SERVFAIL — a lame delegation, unreachable nameservers — is not.
+ */
+export function isDnssecFailure(f: DnsFailure | undefined): boolean {
+    return !!f && f.codes.some((c) => c >= 6 && c <= 12);
+}
+
+export function parseFailure(data: DnsJson): DnsFailure | undefined {
+    const codes: number[] = [];
+    const texts: string[] = [];
+    for (const e of data.extended_dns_errors ?? []) {
+        codes.push(e.info_code);
+        if (e.extra_text) texts.push(e.extra_text);
+    }
+    const comments = Array.isArray(data.Comment) ? data.Comment : [];
+    for (const c of comments) {
+        const m = /^EDE\((\d+)\):\s*(.*)$/.exec(c);
+        if (m) {
+            codes.push(Number(m[1]));
+            if (m[2]) texts.push(m[2]);
+        }
+    }
+    if (texts.length === 0 && typeof data.Comment === 'string' && data.Status !== 0) texts.push(data.Comment);
+    return codes.length > 0 || texts.length > 0 ? { codes, text: texts.join(' ') } : undefined;
 }
 
 export interface DnsResult {
@@ -34,6 +72,8 @@ export interface DnsResult {
      * which they report as SERVFAIL instead).
      */
     authenticated: boolean;
+    /** Present when the resolver explained a failure. */
+    failure?: DnsFailure;
 }
 
 export class LookupError extends Error {
@@ -93,6 +133,7 @@ async function queryResolver(base: string, name: string, type: DnsTypeName): Pro
         answers: all.filter((a) => a.type === wanted),
         aliased: wanted !== DNS_TYPE.CNAME && all.some((a) => a.type === DNS_TYPE.CNAME),
         authenticated: data.AD === true,
+        failure: data.Status === 0 ? undefined : parseFailure(data),
     };
 }
 

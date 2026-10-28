@@ -98,6 +98,26 @@ lost its JSON-LD or shipped an unsubstituted `{{PLACEHOLDER}}`, that every
 sitemap URL has a page behind it, and that the domain lists have not crept
 back into the bundle.
 
+### Cross-checking against dig
+
+```sh
+bun run crosscheck   # needs dig and openssl; about a minute
+```
+
+Unit tests run the checkers against a fake zone, which proves the logic
+but not that it reads real DNS correctly. `crosscheck` runs every checker
+against ~250 real domains (`scripts/crosscheck/domains.txt`) and writes
+what each one read and counted: MX hosts and their addresses, SPF records
+with DNS and void lookup counts, the DMARC record found by the tree walk,
+DKIM keys and their lengths, the MTA-STS, TLS-RPT and BIMI records,
+DNSSEC flags and TLSA records, nameservers and SOA. `oracle.py` then
+recomputes all of it independently, from `dig`, an RFC reimplementation of
+the counting rules, `openssl` and Python's `ipaddress`, and diffs the two.
+
+It is a dev tool, not part of CI: live DNS changes underneath it. Run it
+after changing a checker. It exits non-zero on any difference and writes
+them to `.crosscheck/diffs.json`.
+
 ### Colour tokens
 
 `src/styles.css` has two layers, and the distinction matters:
@@ -198,6 +218,7 @@ date, which is the meaningless signal this replaced.
 │   ├── build.ts             – bundles TS, emits pages, shards, sitemap
 │   ├── tools.ts             – copy and FAQs for the /tools/ pages
 │   ├── guides.ts            – the /guides/ articles
+│   ├── crosscheck/          – checker facts vs dig, on real domains
 │   ├── refresh-datasets.ts  – refreshes data/ from upstream
 │   ├── verify-build.ts      – checks over dist/
 │   └── discover-providers.ts – dev helper for finding new providers

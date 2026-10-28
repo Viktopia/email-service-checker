@@ -84,9 +84,13 @@ function human(seconds: number): string {
 }
 
 /** The parent of a name, or null at the top level. */
+/**
+ * The parent of a name, down to and including the top-level domain, which is
+ * where some registries keep their own names: nic.ch is in the ch zone.
+ */
 function parent(name: string): string | null {
     const i = name.indexOf('.');
-    return i < 0 || name.indexOf('.', i + 1) < 0 ? null : name.slice(i + 1);
+    return i < 0 ? null : name.slice(i + 1);
 }
 
 function slash24(ip: string): string {
@@ -99,7 +103,8 @@ export async function checkDnsHealth(domain: string, resolve: Resolve): Promise<
     // A subdomain is usually not its own zone; walk up to where NS lives.
     let zone = domain;
     let ns = await resolve(zone, 'NS');
-    while (ns.answers.length === 0 && ns.status !== 3) {
+    // Stop on NXDOMAIN or SERVFAIL: neither means "look higher up".
+    while (ns.answers.length === 0 && ns.status === 0) {
         const up = parent(zone);
         if (!up) break;
         zone = up;
@@ -121,7 +126,11 @@ export async function checkDnsHealth(domain: string, resolve: Resolve): Promise<
             id: 'dns-exists',
             status: 'fail',
             title: 'Resolution fails (SERVFAIL)',
-            detail: `Resolvers cannot get an answer for ${zone}. The nameservers may be down or unreachable, or DNSSEC validation fails.`,
+            detail: `Resolvers cannot get an answer for ${zone}. ${
+                ns.failure?.text
+                    ? `The resolver reports: ${ns.failure.text}`
+                    : 'The nameservers may be down or unreachable, or DNSSEC validation fails.'
+            }`,
         });
         return report;
     }

@@ -9,7 +9,13 @@ import { DNS_TYPE, type DnsResult, type DnsTypeName, type Resolve } from '../src
  */
 export type Zone = Record<
     string,
-    Partial<Record<DnsTypeName, string[]>> & { secure?: boolean; servfail?: boolean; cname?: boolean }
+    Partial<Record<DnsTypeName, string[]>> & {
+        secure?: boolean;
+        servfail?: boolean;
+        /** Extended DNS Error code the resolver reports with the SERVFAIL. */
+        ede?: number;
+        cname?: boolean;
+    }
 >;
 
 export function fakeResolver(zone: Zone): Resolve & { queries: string[] } {
@@ -18,7 +24,15 @@ export function fakeResolver(zone: Zone): Resolve & { queries: string[] } {
         queries.push(`${type} ${name}`);
         const node = zone[name.toLowerCase()];
         if (!node) return { status: 3, answers: [], aliased: false, authenticated: false };
-        if (node.servfail) return { status: 2, answers: [], aliased: false, authenticated: false };
+        if (node.servfail) {
+            return {
+                status: 2,
+                answers: [],
+                aliased: false,
+                authenticated: false,
+                failure: node.ede !== undefined ? { codes: [node.ede], text: `EDE ${node.ede}` } : undefined,
+            };
+        }
         const data = node[type] ?? [];
         return {
             status: 0,

@@ -250,6 +250,21 @@ describe('DNS health', () => {
         expect(status(r.checks, 'dns-zone')).toBe('info');
     });
 
+    test('a name inside its TLD’s own zone walks up to the TLD', async () => {
+        const zone: Zone = {
+            'nic.example': { A: ['198.51.100.10'] },
+            example: {
+                NS: ['a.nic.example.', 'b.nic.example.'],
+                SOA: ['a.nic.example. ops.example. 1 900 600 1209600 900'],
+            },
+            'a.nic.example': { A: ['192.0.2.1'] },
+            'b.nic.example': { A: ['198.51.100.2'] },
+        };
+        const r = await checkDnsHealth('nic.example', fakeResolver(zone));
+        expect(r.zone).toBe('example');
+        expect(status(r.checks, 'dns-ns-count')).toBe('pass');
+    });
+
     test('a domain that does not exist fails', async () => {
         expect(status((await checkDnsHealth('nope.example', fakeResolver({}))).checks, 'dns-exists')).toBe(
             'fail',

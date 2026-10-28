@@ -547,8 +547,12 @@ export async function checkSpf(domain: string, resolve: Resolve): Promise<SpfRep
             id: 'spf-multiple',
             status: 'fail',
             title: 'Multiple SPF records',
-            detail: `${domain} publishes ${records.length} records starting with "v=spf1". SPF allows exactly one, and receivers return a permanent error when they find more. Merge them into a single record.`,
+            detail: `${domain} publishes ${records.length} records starting with "v=spf1". SPF allows exactly one, and receivers return a permanent error when they find more, without evaluating either. Merge them into a single record.`,
         });
+        // Receivers stop here (RFC 7208 §4.5), so lookup counts or a final
+        // policy would describe an evaluation that never happens — and
+        // whichever record the resolver lists first, which is not stable.
+        return { domain, records, tree: null, lookups: 0, voidLookups: 0, checks };
     } else {
         checks.push({
             id: 'spf-multiple',

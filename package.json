@@ -14,7 +14,8 @@
     "lint": "biome lint src scripts tests",
     "format": "biome format --write src scripts tests",
     "check": "biome check src scripts tests",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "crosscheck": "bun run scripts/crosscheck/facts.ts && python3 -I scripts/crosscheck/oracle.py"
   },
   "dependencies": {
     "@fontsource-variable/bricolage-grotesque": "^5.3.0",

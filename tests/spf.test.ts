@@ -102,6 +102,10 @@ describe('checkSpf', () => {
             fakeResolver({ 'example.com': { TXT: ['v=spf1 -all', 'v=spf1 include:x.example -all'] } }),
         );
         expect(status(r.checks, 'spf-multiple')).toBe('fail');
+        // Receivers stop at the permerror, so nothing past it is evaluated.
+        expect(r.lookups).toBe(0);
+        expect(r.tree).toBeNull();
+        expect(status(r.checks, 'spf-all')).toBeUndefined();
     });
 
     test('counts lookups across nested includes, and fails past ten', async () => {

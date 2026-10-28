@@ -13,7 +13,7 @@
  */
 
 import type { Check } from './checks.ts';
-import type { Resolve } from './dns.ts';
+import { isDnssecFailure, type Resolve } from './dns.ts';
 import { isNullMx } from './mx-health.ts';
 import type { MxRecord } from './types.ts';
 
@@ -115,12 +115,25 @@ export async function checkDane(
     const report: DaneReport = { domain, signed, hasDs, hosts: [], checks };
 
     if (mxAnswer.status === 2) {
-        checks.push({
-            id: 'dnssec',
-            status: 'fail',
-            title: 'DNSSEC validation fails',
-            detail: `The resolver returned SERVFAIL for ${domain}, which is what a broken DNSSEC chain looks like: validating resolvers will treat the whole domain as unreachable. Check the DS record at the registrar against the zone's keys.`,
-        });
+        // SERVFAIL is what a broken DNSSEC chain looks like, but so is a
+        // lame delegation or a dead nameserver. Only blame DNSSEC when the
+        // resolver's Extended DNS Error says so.
+        const why = mxAnswer.failure?.text ? ` The resolver reports: ${mxAnswer.failure.text}` : '';
+        checks.push(
+            isDnssecFailure(mxAnswer.failure)
+                ? {
+                      id: 'dnssec',
+                      status: 'fail',
+                      title: 'DNSSEC validation fails',
+                      detail: `Validating resolvers reject the answers for ${domain} and treat the whole domain as unreachable.${why} Check the DS record at the registrar against the zone's keys.`,
+                  }
+                : {
+                      id: 'dnssec',
+                      status: 'fail',
+                      title: 'Resolution fails (SERVFAIL)',
+                      detail: `Resolvers cannot get an answer for ${domain}, so DNSSEC and DANE cannot be checked, and nothing can deliver mail to it.${why}`,
+                  },
+        );
         return report;
     }
 
