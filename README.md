@@ -33,12 +33,15 @@ check from. Each checker is a pure function over an injected DNS resolver
 | Page                       | Checks                                                                                           |
 | -------------------------- | ------------------------------------------------------------------------------------------------ |
 | `/mx-lookup/`              | Every MX host resolves; no IP literals, CNAMEs, private addresses or duplicates; null MX; IPv6    |
-| `/tools/spf-checker/`      | One record, syntax, 10 DNS lookups and 2 void lookups across the include tree, `all`, `ptr`, loops |
+| `/tools/spf-checker/`      | One record, syntax, 10 DNS lookups and 2 void lookups across the include tree, `all`, `ptr`, loops, duplicate includes |
 | `/tools/dmarc-checker/`    | RFC 9989: DNS tree walk discovery, obsolete `pct`/`rf`/`ri`, `t=`, `sp=`/`np=`, report authorisation |
 | `/tools/mta-sts-checker/`  | `_mta-sts` record, policy host over HTTPS, policy file, mode, `max_age`, MX coverage             |
 | `/tools/tls-rpt-checker/`  | `_smtp._tls` record and its `mailto:`/`https:` destinations                                      |
 | `/tools/dane-checker/`     | DNSSEC (from the resolvers' AD bit, or SERVFAIL), TLSA at `_25._tcp.<mx>`, usages, coverage      |
 | `/tools/bimi-checker/`     | `default._bimi` record and the DMARC enforcement BIMI requires                                   |
+| `/tools/dkim-checker/`     | Key by selector, or common selectors tried; RSA length, Ed25519, revoked, `t=y`, SHA-1, wildcards |
+| `/tools/dns-checker/`      | Nameserver count, resolution, public addresses, /24 spread, SOA timers, DNSSEC                   |
+| `/tools/email-security-report/` | Every check above at once, one verdict per standard, no aggregate score                     |
 
 Some things are not visible from a web page, and are reported as **Not
 verifiable** rather than passed, so a report never reads as all-clear on the
@@ -49,6 +52,8 @@ strength of the parts it could see:
   headers. The MTA-STS checker still makes an opaque request, which tells it
   whether the host answers over HTTPS with a trusted certificate.
 - Matching a TLSA record against a certificate needs an SMTP connection.
+- Per-nameserver checks (authoritative answers, SOA serial agreement, zone
+  transfers) need queries to each server, and DoH only reaches resolvers.
 
 The checkers are a dynamic import in `src/main.ts`, split into their own
 chunk, so the homepage and provider pages never download them.
@@ -176,7 +181,9 @@ date, which is the meaningless signal this replaced.
 │   ├── dns.ts               – DoH resolver with fallback, TXT parsing
 │   ├── lookup.ts            – MX lookup
 │   ├── checkers.ts          – lazily loaded registry of the checkers below
-│   ├── spf.ts, dmarc.ts, mta-sts.ts, tls-rpt.ts, dane.ts, bimi.ts, mx-health.ts
+│   ├── spf.ts, dmarc.ts, dkim.ts, mta-sts.ts, tls-rpt.ts, dane.ts, bimi.ts,
+│   │   mx-health.ts, dns-health.ts
+│   ├── email-report.ts      – runs every checker for the full report
 │   ├── checks.ts            – the Check result shape shared by every checker
 │   ├── render-checks.ts     – DOM rendering of checker reports
 │   ├── identify.ts          – provider matcher + consumer-domain check
