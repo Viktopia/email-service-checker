@@ -1,7 +1,8 @@
+import { isNullMx } from './identify.ts';
 import { CATEGORY_LABEL, CATEGORY_NOTE, providerSlug } from './providers.ts';
 import type { ConsumerHit, Finding, MxRecord } from './types.ts';
 
-function el<K extends keyof HTMLElementTagNameMap>(
+export function el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
     attrs: Partial<Record<string, string>> = {},
     ...children: (Node | string)[]
@@ -16,7 +17,7 @@ function el<K extends keyof HTMLElementTagNameMap>(
     return node;
 }
 
-function reportNumber(domain: string): string {
+export function reportNumber(domain: string): string {
     let h = 2166136261;
     for (const ch of domain) {
         h ^= ch.charCodeAt(0);
@@ -25,7 +26,7 @@ function reportNumber(domain: string): string {
     return (h >>> 0).toString(36).toUpperCase().padStart(7, '0').slice(0, 7);
 }
 
-const CARD = 'card report-anim p-6 sm:p-8 flex flex-col';
+export const CARD = 'card report-anim p-6 sm:p-8 flex flex-col';
 
 function categoryBadge(category: Finding['provider']['category']): HTMLElement {
     return el('span', { class: `cat-badge cat-${category}` }, CATEGORY_LABEL[category]);
@@ -70,7 +71,8 @@ function mxTable(mxRecords: readonly MxRecord[]): HTMLElement {
                 'tr',
                 {},
                 el('td', { class: 'mx-prio' }, String(mx.priority)),
-                el('td', { class: 'mx-host' }, mx.host),
+                // A null MX's host is the root, ".", which parses to an empty string.
+                el('td', { class: 'mx-host' }, mx.host || '.'),
             ),
         );
     }
@@ -79,7 +81,7 @@ function mxTable(mxRecords: readonly MxRecord[]): HTMLElement {
     return wrap;
 }
 
-function shareButton(domain: string): HTMLButtonElement {
+export function shareButton(domain: string): HTMLButtonElement {
     const btn = el('button', { type: 'button', class: 'btn-ghost' }, 'Copy share link');
     btn.addEventListener('click', async () => {
         const url = new URL(window.location.href);
@@ -183,6 +185,8 @@ export function reportSummary({ domain, findings, mxRecords, consumerHit }: Rend
         parts.push(
             findings.map((f) => `${f.provider.name} — ${CATEGORY_LABEL[f.provider.category]}`).join('; '),
         );
+    } else if (isNullMx(mxRecords)) {
+        parts.push(`${domain} publishes a null MX: it accepts no email`);
     } else if (mxRecords.length === 0) {
         parts.push(`${domain} publishes no MX records, so it does not receive email`);
     } else {
@@ -219,7 +223,25 @@ function buildReport({ domain, findings, mxRecords, consumerHit }: RenderInput):
 
     const findingsWrap = el('div', { class: 'report-row flex flex-col gap-7' });
 
-    if (findings.length === 0 && mxRecords.length > 0) {
+    if (isNullMx(mxRecords)) {
+        findingsWrap.append(
+            el(
+                'div',
+                { class: 'finding' },
+                el('h3', { class: 'display-name finding-title' }, 'Accepts no email'),
+                el(
+                    'div',
+                    { class: 'finding-badge' },
+                    el('span', { class: 'cat-badge cat-parking' }, 'Null MX'),
+                ),
+                el(
+                    'p',
+                    { class: 'finding-note' },
+                    `${domain} publishes a null MX (RFC 7505): a deliberate statement that it receives no mail, so senders give up immediately instead of retrying.`,
+                ),
+            ),
+        );
+    } else if (findings.length === 0 && mxRecords.length > 0) {
         findingsWrap.append(
             el(
                 'div',

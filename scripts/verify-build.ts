@@ -18,6 +18,8 @@ import { join } from 'node:path';
 import { type ConsumerShard, SHARD_BASE_PATH, SHARD_COUNT, shardIdFor } from '../src/consumer-shards.ts';
 import { DATASET_FILES, type DatasetKind, parseDatasetText, SHARD_KEY } from '../src/datasets.ts';
 import { PROVIDERS, providerSlug } from '../src/providers.ts';
+import { GUIDES, guideUrl } from './guides.ts';
+import { TOOLS, toolUrl } from './tools.ts';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const DIST = join(ROOT, 'dist');
@@ -83,7 +85,14 @@ check(
 // The pages that are not generated from PROVIDERS. Kept in one place so a new
 // standalone page picks up the JSON-LD and placeholder checks below, and the
 // sitemap and llms.txt assertions further down, without being wired in twice.
-const STANDALONE_PAGES = ['/', '/mx-lookup/'];
+const STANDALONE_PAGES = [
+    '/',
+    '/mx-lookup/',
+    '/tools/',
+    ...TOOLS.map((t) => toolUrl(t.slug)),
+    '/guides/',
+    ...GUIDES.map((g) => guideUrl(g.slug)),
+];
 
 const pages = [
     ...STANDALONE_PAGES.map((p) => join(p.replace(/^\//, ''), 'index.html')),
@@ -157,13 +166,43 @@ for (const page of pages) {
     }
 }
 
+// ---- Tools and internal links ---------------------------------------------
+
+// Each checker page has to carry the form, tagged with the checker main.ts
+// should run; a missing or mistyped data-tool silently falls back to the
+// provider lookup.
+for (const t of TOOLS) {
+    const html = readFileSync(join(DIST, toolUrl(t.slug).slice(1), 'index.html'), 'utf8');
+    check(`${toolUrl(t.slug)} runs the ${t.key} checker`, html.includes(`data-tool="${t.key}"`));
+}
+for (const g of GUIDES) {
+    const html = readFileSync(join(DIST, guideUrl(g.slug).slice(1), 'index.html'), 'utf8');
+    check(`${guideUrl(g.slug)} has no checker form`, !html.includes('id="check-form"'));
+}
+
+// Guides and tool pages are hand-written HTML full of cross-links, so a
+// renamed slug would leave dead links that nothing else would notice.
+const deadLinks = new Set<string>();
+for (const page of pages) {
+    const path = join(DIST, page);
+    if (!existsSync(path)) continue;
+    const html = readFileSync(path, 'utf8');
+    for (const m of html.matchAll(/href="(\/[^"#?]*)/g)) {
+        const href = m[1]!;
+        if (href.startsWith('//')) continue;
+        const target = href.endsWith('/') ? join(DIST, href, 'index.html') : join(DIST, href);
+        if (!existsSync(target)) deadLinks.add(`${page} → ${href}`);
+    }
+}
+check('every internal link resolves', deadLinks.size === 0, [...deadLinks].slice(0, 5).join(', '));
+
 // ---- Sitemap, robots, llms ------------------------------------------------
 
 const sitemap = readFileSync(join(DIST, 'sitemap.xml'), 'utf8');
 const locs = [...sitemap.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]!);
-// Homepage + /mx-lookup/ + one page per provider.
+// The standalone pages + one page per provider.
 check(
-    'sitemap lists the homepage, the MX lookup, and every provider',
+    'sitemap lists every standalone page and every provider',
     locs.length === PROVIDERS.length + STANDALONE_PAGES.length,
     `${locs.length} URLs`,
 );
@@ -192,12 +231,27 @@ for (const file of ['robots.txt', 'llms.txt', 'main.js', 'styles.css', 'CNAME'])
 }
 
 // main.js used to be 224 kB, 203 kB of which was the inlined domain lists.
-// Guard the regression rather than the exact number.
+// Guard the regression rather than the exact number. Since the checkers were
+// split out, what a provider page loads is main.js plus the chunks it imports
+// statically; the checker chunk is only fetched on tool pages.
 const mainJs = readFileSync(join(DIST, 'main.js'), 'utf8');
+const staticChunks = [...mainJs.matchAll(/from"\.\/(chunks\/[^"]+\.js)"/g)].map((m) => m[1]!);
+const lazyChunks = [...mainJs.matchAll(/import\("\.\/(chunks\/[^"]+\.js)"\)/g)].map((m) => m[1]!);
+for (const chunk of [...staticChunks, ...lazyChunks])
+    check(`${chunk} was emitted`, existsSync(join(DIST, chunk)));
 check(
-    'main.js does not inline the domain lists',
-    mainJs.length < 80_000,
-    `${(mainJs.length / 1024).toFixed(0)} kB`,
+    'the checkers are loaded lazily',
+    lazyChunks.some((c) => c.includes('checkers')),
+    lazyChunks.join(', '),
+);
+const eagerBytes = [
+    mainJs.length,
+    ...staticChunks.map((c) => readFileSync(join(DIST, c), 'utf8').length),
+].reduce((a, b) => a + b, 0);
+check(
+    'the provider lookup bundle does not inline the domain lists or the checkers',
+    eagerBytes < 40_000,
+    `${(eagerBytes / 1024).toFixed(0)} kB`,
 );
 
 const llms = readFileSync(join(DIST, 'llms.txt'), 'utf8');

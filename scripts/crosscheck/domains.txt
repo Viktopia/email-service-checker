@@ -1,0 +1,26 @@
+# Real domains for `bun run crosscheck`, chosen to cover each check both ways:
+# big providers, registries and DNSSEC zones, universities and governments,
+# privacy mail providers, subdomains, null-MX and non-existent domains.
+google.com microsoft.com apple.com amazon.com facebook.com netflix.com github.com gitlab.com stackoverflow.com wikipedia.org
+yahoo.com aol.com outlook.com gmail.com icloud.com proton.me protonmail.com fastmail.com zoho.com gmx.net
+ietf.org isoc.org icann.org iana.org nic.cz nic.se sidn.nl denic.de afnic.fr nlnetlabs.nl
+cloudflare.com fastly.com akamai.com digitalocean.com linode.com hetzner.com ovh.com scaleway.com vultr.com heroku.com
+salesforce.com hubspot.com mailchimp.com sendgrid.com postmarkapp.com mailgun.com sparkpost.com mandrillapp.com zendesk.com intercom.com
+paypal.com stripe.com square.com wise.com revolut.com monzo.com chase.com bankofamerica.com wellsfargo.com citi.com
+nytimes.com bbc.co.uk theguardian.com cnn.com washingtonpost.com reuters.com bloomberg.com wsj.com ft.com economist.com
+mit.edu stanford.edu harvard.edu berkeley.edu ox.ac.uk cam.ac.uk ethz.ch kth.se uu.se lu.se
+whitehouse.gov nasa.gov usa.gov gov.uk canada.ca europa.eu un.org who.int nato.int regeringen.se
+craigslist.org ebay.com etsy.com shopify.com walmart.com target.com ikea.com spotify.com tiktok.com twitter.com
+x.com linkedin.com reddit.com pinterest.com tumblr.com medium.com substack.com wordpress.com wix.com squarespace.com
+mozilla.org debian.org ubuntu.com fedoraproject.org archlinux.org kernel.org python.org rust-lang.org golang.org nodejs.org
+dropbox.com box.com slack.com zoom.us atlassian.com notion.so figma.com canva.com adobe.com autodesk.com
+oracle.com ibm.com sap.com cisco.com intel.com amd.com nvidia.com dell.com hp.com lenovo.com
+bund.de bsi.bund.de ncsc.gov.uk cisa.gov ncsc.nl posteo.de mailbox.org tutanota.com runbox.com migadu.com
+neverssl.com example.com example.org example.net localhost.com test.com invalid.com nonexistent-domain-zz9.com emailservicechecker.com mail.google.com
+www.bbc.co.uk news.ycombinator.com ycombinator.com blog.cloudflare.com docs.github.com status.slack.com gov.se skatteverket.se svt.se dn.se
+spotify.se klarna.com ericsson.com volvo.com h-m.com bahnhof.se spiegel.de heise.de t-online.de web.de
+lemonde.fr orange.fr free.fr laposte.fr sncf.fr rijksoverheid.nl tweakers.net transip.nl bol.com nos.nl
+gov.ie rte.ie anpost.ie gov.au abc.net.au cira.ca nic.ch switch.ch admin.ch post.ch
+nic.at nic.fi traficom.fi yle.fi nic.br startmail.com hey.com pm.me skiff.com mailfence.com
+disroot.org riseup.net systemli.org ctemplar.com purelymail.com letsencrypt.org eff.org torproject.org signal.org matrix.org
+openbsd.org freebsd.org netbsd.org gnu.org fsf.org
