@@ -95,10 +95,14 @@ def spf_walk(domain, path, acc):
     terms = rec.split()[1:]
     has_all = any(re.match(r'^[+\-~?]?all$', t, re.I) for t in terms)
     total = 0
+    redirect_terms = [t for t in terms if '=' in t.split(':')[0] and t.split('=', 1)[0].lower() == 'redirect']
+    # redirect= is evaluated after every mechanism, wherever it is written (RFC 7208 §6.1).
+    terms = [t for t in terms if t not in redirect_terms] + redirect_terms
     for t in terms:
         if '=' in t.split(':')[0]:
             name, val = t.split('=', 1)
             if name.lower() == 'redirect' and not has_all:
+                acc['order'].append(t)
                 total += 1
                 if '%{' not in val:
                     target = val.lower().rstrip('.')
@@ -115,6 +119,7 @@ def spf_walk(domain, path, acc):
         if name not in LOOKUP:
             continue
         total += 1
+        acc['order'].append(t)
         val = mech.split(':', 1)[1] if ':' in mech else ''
         if name == 'include' and '%{' not in val:
             target = val.lower().rstrip('.')
@@ -262,10 +267,11 @@ def compare(domain, f):
         # Permerror: receivers evaluate nothing, so nothing should be counted.
         eq('SPF multiple records stop evaluation', (f['spf']['lookups'], f['spf']['tree']), (0, None))
     elif recs:
-        acc = {'voids': 0, 'includes': {}, 'problems': []}
+        acc = {'voids': 0, 'includes': {}, 'problems': [], 'order': []}
         _, lookups = spf_walk(domain, [domain], acc)
         eq('SPF DNS lookups', f['spf']['lookups'], lookups)
         eq('SPF void lookups', f['spf']['voids'], acc['voids'])
+        eq('SPF evaluation order', f['spf']['order'], acc['order'])
         dupes = any(n > 1 for n in acc['includes'].values())
         eq('SPF duplicate include flagged', 'spf-duplicate-include' in f['spf']['checks'], dupes)
         eq('SPF over 10 lookups flagged', f['spf']['checks'].get('spf-lookups') == 'fail', lookups > 10)

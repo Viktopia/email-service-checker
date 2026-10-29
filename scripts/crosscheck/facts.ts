@@ -70,6 +70,7 @@ async function facts(domain: string) {
             records: spf.records,
             lookups: spf.lookups,
             voids: spf.voidLookups,
+            order: spf.evaluation.map((e) => e.term),
             tree: spf.tree ? tree(spf.tree) : null,
             checks: statuses(spf.checks),
         },

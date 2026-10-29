@@ -342,7 +342,48 @@ export interface SpfReport {
     tree: SpfNode | null;
     lookups: number;
     voidLookups: number;
+    /**
+     * Lookup-costing terms in the order a receiver reaches them, numbered.
+     * Past the tenth, a receiver returns permerror instead of evaluating.
+     */
+    evaluation: EvaluatedTerm[];
     checks: Check[];
+}
+
+export interface EvaluatedTerm {
+    /** 1-based position in the lookup count. */
+    n: number;
+    term: string;
+    /** The record the term appears in. */
+    in: string;
+}
+
+/**
+ * The order a receiver spends lookups in: left to right through each record,
+ * descending into an include where it appears, and into redirect= last
+ * (RFC 7208 §4.6.2, §6.1). Evaluation stops at the first match, so a sender
+ * matched before the limit is reached is unaffected by what comes after it.
+ */
+export function evaluationOrder(node: SpfNode, out: EvaluatedTerm[] = []): EvaluatedTerm[] {
+    const terms = node.parsed?.terms ?? [];
+    const hasAll = terms.some((t) => t.kind === 'mechanism' && t.name === 'all' && !t.error);
+    const includes = node.children.filter((c) => c.via === 'include');
+    let next = 0;
+    for (const t of terms) {
+        if (t.error || t.kind !== 'mechanism' || !LOOKUP_TERMS.has(t.name)) continue;
+        out.push({ n: out.length + 1, term: t.raw, in: node.domain });
+        if (t.name === 'include' && !hasMacro(t.value)) {
+            const child = includes[next++];
+            if (child) evaluationOrder(child, out);
+        }
+    }
+    const redirect = terms.find((t) => t.kind === 'modifier' && t.name === 'redirect' && !t.error);
+    if (redirect && !hasAll) {
+        out.push({ n: out.length + 1, term: redirect.raw, in: node.domain });
+        const child = node.children.find((c) => c.via === 'redirect');
+        if (child) evaluationOrder(child, out);
+    }
+    return out;
 }
 
 interface WalkState {
@@ -532,7 +573,7 @@ export async function checkSpf(domain: string, resolve: Resolve): Promise<SpfRep
                 ? `${domain} does not exist in DNS.`
                 : `${domain} publishes no TXT record starting with "v=spf1". Receivers cannot tell which servers may send its mail, and DMARC can only pass on DKIM.`,
         });
-        return { domain, records, tree: null, lookups: 0, voidLookups: 0, checks };
+        return { domain, records, tree: null, lookups: 0, voidLookups: 0, evaluation: [], checks };
     }
 
     checks.push({
@@ -552,7 +593,7 @@ export async function checkSpf(domain: string, resolve: Resolve): Promise<SpfRep
         // Receivers stop here (RFC 7208 §4.5), so lookup counts or a final
         // policy would describe an evaluation that never happens — and
         // whichever record the resolver lists first, which is not stable.
-        return { domain, records, tree: null, lookups: 0, voidLookups: 0, checks };
+        return { domain, records, tree: null, lookups: 0, voidLookups: 0, evaluation: [], checks };
     } else {
         checks.push({
             id: 'spf-multiple',
@@ -584,6 +625,9 @@ export async function checkSpf(domain: string, resolve: Resolve): Promise<SpfRep
     }
 
     const lookups = state.lookups;
+    const evaluation = evaluationOrder(tree);
+    const beyond = evaluation.filter((e) => e.n > MAX_LOOKUPS);
+    const located = (e: EvaluatedTerm) => (e.in === domain ? e.term : `${e.term} (in ${e.in})`);
     checks.push(
         lookups > MAX_LOOKUPS
             ? {
@@ -592,7 +636,10 @@ export async function checkSpf(domain: string, resolve: Resolve): Promise<SpfRep
                   // Worded as a fact about the record. "Too many DNS lookups" read as an
                   // error this tool had run into, like a rate limit or a resolver giving up.
                   title: `Record needs ${lookups} DNS lookups; SPF allows ${MAX_LOOKUPS}`,
-                  detail: `This is a problem with the published record, not with this check, and the same from any DNS resolver. Receiving mail servers (Gmail, Outlook and the rest) may make at most ${MAX_LOOKUPS} DNS lookups while evaluating SPF (RFC 7208 §4.6.4). This record and the records it includes need ${lookups}, so receivers stop and return a permanent error: SPF fails for all mail from this domain, legitimate mail included. The lookup tree below shows which includes cost the most. Remove includes for services you no longer use, use a provider's narrower include, or replace includes with ip4/ip6 ranges.`,
+                  // Not "SPF fails for all mail": receivers count as they evaluate
+                  // and stop at the first match, so only senders the record reaches
+                  // after the tenth lookup — and mail no term matches — are hit.
+                  detail: `This is a property of the published record, the same from any DNS resolver. Receiving mail servers count DNS lookups as they evaluate SPF, left to right, and must return a permanent error ("permerror") once a message needs more than ${MAX_LOOKUPS} (RFC 7208 §4.6.4). Mail from a sender matched earlier still passes: evaluation stops at the first match. Past the limit here: ${beyond.map(located).join(', ')}. Mail from senders authorised only there, and mail that matches nothing, gets permerror instead of pass or fail, and DMARC then relies on DKIM alone. Strict validators also flag the whole record. To fix it, remove includes for services you no longer use, use a provider's narrower include, or replace includes with ip4/ip6 ranges.`,
               }
             : {
                   id: 'spf-lookups',
@@ -753,5 +800,5 @@ export async function checkSpf(domain: string, resolve: Resolve): Promise<SpfRep
         });
     }
 
-    return { domain, records, tree, lookups, voidLookups: state.voidLookups, checks };
+    return { domain, records, tree, lookups, voidLookups: state.voidLookups, evaluation, checks };
 }
