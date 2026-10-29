@@ -124,6 +124,10 @@ describe('checkSpf', () => {
         expect(r.lookups).toBe(16);
         expect(status(r.checks, 'spf-lookups')).toBe('fail');
         expect(r.tree?.totalLookups).toBe(16);
+        // Read as a property of the record, not as an error this tool ran into.
+        const check = r.checks.find((c) => c.id === 'spf-lookups')!;
+        expect(check.title).toBe('Record needs 16 DNS lookups; SPF allows 10');
+        expect(check.detail).toContain('not with this check');
     });
 
     test('an include of a domain without SPF is a permanent error and a void lookup', async () => {

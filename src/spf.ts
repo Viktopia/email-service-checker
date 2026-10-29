@@ -589,13 +589,15 @@ export async function checkSpf(domain: string, resolve: Resolve): Promise<SpfRep
             ? {
                   id: 'spf-lookups',
                   status: 'fail',
-                  title: `Too many DNS lookups (${lookups} of ${MAX_LOOKUPS})`,
-                  detail: `Evaluating this record takes ${lookups} DNS lookups, over SPF's limit of ${MAX_LOOKUPS}. Receivers stop at the limit and return a permanent error, so SPF fails for legitimate mail. Remove includes for services you no longer use, or replace includes with ip4/ip6 ranges.`,
+                  // Worded as a fact about the record. "Too many DNS lookups" read as an
+                  // error this tool had run into, like a rate limit or a resolver giving up.
+                  title: `Record needs ${lookups} DNS lookups; SPF allows ${MAX_LOOKUPS}`,
+                  detail: `This is a problem with the published record, not with this check, and the same from any DNS resolver. Receiving mail servers (Gmail, Outlook and the rest) may make at most ${MAX_LOOKUPS} DNS lookups while evaluating SPF (RFC 7208 §4.6.4). This record and the records it includes need ${lookups}, so receivers stop and return a permanent error: SPF fails for all mail from this domain, legitimate mail included. The lookup tree below shows which includes cost the most. Remove includes for services you no longer use, use a provider's narrower include, or replace includes with ip4/ip6 ranges.`,
               }
             : {
                   id: 'spf-lookups',
                   status: lookups >= MAX_LOOKUPS - 1 ? 'warn' : 'pass',
-                  title: `${lookups} of ${MAX_LOOKUPS} DNS lookups used`,
+                  title: `Record needs ${lookups} of the ${MAX_LOOKUPS} DNS lookups SPF allows`,
                   detail:
                       lookups >= MAX_LOOKUPS - 1
                           ? 'Within the limit, but one more include from a provider can push it over. Providers change their own records without notice.'
