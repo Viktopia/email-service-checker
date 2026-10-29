@@ -127,7 +127,60 @@ describe('checkSpf', () => {
         // Read as a property of the record, not as an error this tool ran into.
         const check = r.checks.find((c) => c.id === 'spf-lookups')!;
         expect(check.title).toBe('Record needs 16 DNS lookups; SPF allows 10');
-        expect(check.detail).toContain('not with this check');
+        expect(check.detail).toContain('same from any DNS resolver');
+    });
+
+    test('names only the terms evaluated past the tenth lookup', async () => {
+        // The shape of a real record: six one-lookup includes and mx, then a
+        // provider include that chains four more. Mail matched early passes;
+        // only what sits past lookup ten is affected.
+        const zone: Zone = {
+            'example.com': {
+                TXT: [
+                    'v=spf1 include:a.example include:b.example include:c.example mx include:d.example include:e.example include:mg.example -all',
+                ],
+                MX: ['10 mx.example.com.'],
+            },
+            'mx.example.com': { A: ['192.0.2.25'] },
+            'mg.example': { TXT: ['v=spf1 include:_spf.mg.example include:_spf.eu.mg.example -all'] },
+            '_spf.mg.example': { TXT: ['v=spf1 include:_spf1.mg.example include:_spf2.mg.example ~all'] },
+        };
+        for (const n of ['a', 'b', 'c', 'd', 'e', '_spf1.mg', '_spf2.mg', '_spf.eu.mg']) {
+            zone[`${n}.example`] = { TXT: ['v=spf1 ip4:192.0.2.1 ~all'] };
+        }
+        const r = await checkSpf('example.com', fakeResolver(zone));
+        expect(r.lookups).toBe(11);
+        expect(r.evaluation.map((e) => e.term)).toEqual([
+            'include:a.example',
+            'include:b.example',
+            'include:c.example',
+            'mx',
+            'include:d.example',
+            'include:e.example',
+            'include:mg.example',
+            'include:_spf.mg.example',
+            'include:_spf1.mg.example',
+            'include:_spf2.mg.example',
+            'include:_spf.eu.mg.example',
+        ]);
+        const detail = r.checks.find((c) => c.id === 'spf-lookups')!.detail;
+        expect(detail).toContain('Past the limit here: include:_spf.eu.mg.example (in mg.example).');
+        expect(detail).not.toContain('all mail');
+    });
+
+    test('evaluation order follows a redirect last', async () => {
+        const zone: Zone = {
+            'example.com': { TXT: ['v=spf1 include:a.example redirect=_spf.example.com'] },
+            'a.example': { TXT: ['v=spf1 ip4:192.0.2.1 ~all'] },
+            '_spf.example.com': { TXT: ['v=spf1 include:b.example -all'] },
+            'b.example': { TXT: ['v=spf1 ip4:192.0.2.2 ~all'] },
+        };
+        const r = await checkSpf('example.com', fakeResolver(zone));
+        expect(r.evaluation.map((e) => [e.n, e.term])).toEqual([
+            [1, 'include:a.example'],
+            [2, 'redirect=_spf.example.com'],
+            [3, 'include:b.example'],
+        ]);
     });
 
     test('an include of a domain without SPF is a permanent error and a void lookup', async () => {

@@ -16,7 +16,14 @@ import type { EmailReport } from './email-report.ts';
 import type { MtaStsReport } from './mta-sts.ts';
 import type { MxHealth, MxHost } from './mx-health.ts';
 import { CARD, el, reportNumber, shareButton } from './render.ts';
-import { describeTerm, qualifierResult, type SpfNode, type SpfReport } from './spf.ts';
+import {
+    describeTerm,
+    type EvaluatedTerm,
+    MAX_LOOKUPS,
+    qualifierResult,
+    type SpfNode,
+    type SpfReport,
+} from './spf.ts';
 import type { TlsRptReport } from './tls-rpt.ts';
 
 export function statusBadge(status: CheckStatus): HTMLElement {
@@ -139,7 +146,23 @@ function shareRow(domain: string, links: Array<{ href: string; label: string }> 
 
 // ---- SPF ------------------------------------------------------------------
 
-function spfTree(node: SpfNode): HTMLElement {
+/**
+ * Where each include or redirect sits in the receiver's lookup count, keyed
+ * "<record it appears in>><target>", so the tree can say which branches a
+ * receiver never reaches.
+ */
+function lookupPositions(evaluation: readonly EvaluatedTerm[]): Map<string, number> {
+    const out = new Map<string, number>();
+    for (const e of evaluation) {
+        const m = /^(?:[+\-~?]?include:|redirect=)(.+)$/i.exec(e.term);
+        if (m) out.set(`${e.in}>${m[1]!.toLowerCase().replace(/\.$/, '')}`, e.n);
+    }
+    return out;
+}
+
+function spfTree(node: SpfNode, positions: Map<string, number>, parent = ''): HTMLElement {
+    const n = positions.get(`${parent}>${node.domain}`);
+    const past = n !== undefined && n > MAX_LOOKUPS;
     const label = el(
         'span',
         { class: 'tree-label' },
@@ -148,14 +171,28 @@ function spfTree(node: SpfNode): HTMLElement {
             'span',
             { class: 'text-ink-muted' },
             node.via === 'root' ? '' : ` · ${node.via}`,
-            node.record ? ` · ${plural(node.totalLookups, 'lookup')}` : '',
+            n !== undefined ? ` · lookup ${n}` : '',
+            node.via === 'root'
+                ? ` · ${plural(node.totalLookups, 'lookup')}`
+                : node.totalLookups > 0
+                  ? ` · ${plural(node.totalLookups, 'more lookup')} inside`
+                  : '',
         ),
     );
     const item = el('li', {}, label);
+    if (past) {
+        item.append(
+            el(
+                'p',
+                { class: 'tree-problem' },
+                `Past the ${MAX_LOOKUPS}-lookup limit: receivers return permerror instead of evaluating this.`,
+            ),
+        );
+    }
     if (node.problem) item.append(el('p', { class: 'tree-problem' }, node.problem));
     if (node.children.length > 0) {
         const ul = el('ul', { class: 'spf-tree' });
-        for (const c of node.children) ul.append(spfTree(c));
+        for (const c of node.children) ul.append(spfTree(c, positions, node.domain));
         item.append(ul);
     }
     return item;
@@ -193,7 +230,11 @@ export function renderSpfReport(target: HTMLElement, report: SpfReport): void {
                 'div',
                 { class: 'report-row flex flex-col gap-3' },
                 el('p', { class: 'eyebrow' }, `Lookup tree — ${report.lookups} of 10 used`),
-                el('ul', { class: 'spf-tree spf-tree-root' }, spfTree(root)),
+                el(
+                    'ul',
+                    { class: 'spf-tree spf-tree-root' },
+                    spfTree(root, lookupPositions(report.evaluation)),
+                ),
             ),
         );
     }
