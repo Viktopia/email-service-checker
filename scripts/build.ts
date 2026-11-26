@@ -377,6 +377,10 @@ const PUBLISHER_LD = {
 // two can never drift apart.
 const FAQ: ReadonlyArray<{ q: string; a: string }> = [
     {
+        q: 'How do I check an email domain?',
+        a: "Enter the domain, or any address on it, in the checker at the top of this page. It reads the domain's public MX records and tells you three things: which provider, gateway or forwarder handles its mail; whether the domain is a free consumer mailbox (like Gmail) or a disposable throwaway service; and whether it can receive email at all, since a domain with no MX records, or a null MX, cannot.",
+    },
+    {
         q: 'How do I find out who my email provider is?',
         a: "Enter your domain or email address — everything after the @ — in the checker at the top of this page. It reads the domain's public MX records over DNS and matches them against 160+ known services, so you instantly see whether Google Workspace, Microsoft 365, Proton, Fastmail, a security gateway, or something else is handling the mail.",
     },
@@ -447,7 +451,7 @@ const WEBAPP_LD = {
         priceCurrency: 'USD',
     },
     featureList: [
-        'Email provider lookup by domain or email address',
+        'Email domain checker and email provider lookup by domain or email address',
         'MX record lookup with priorities',
         `Identifies ${PROVIDERS.length} mailbox providers, security gateways, forwarders and relays`,
         'Flags free, disposable and alias mailbox domains',
@@ -701,15 +705,21 @@ function homeContentSection(): string {
 writeFileSync(
     join(DIST, 'index.html'),
     render({
-        TITLE: "Email Service Checker — Check Any Domain's Email Provider",
+        // "email domain checker" and "check email domain" are the highest-volume
+        // searches this page appears for, but it sits at the bottom of page one
+        // for them while ranking first for the "email provider checker"
+        // phrasing. None of the title, description, eyebrow or FAQ used the
+        // word "domain" in that sense. The title leads with the phrase and keeps
+        // "email provider" so the queries it already wins stay matched.
+        TITLE: "Email Domain Checker: Find Any Domain's Email Provider | Email Service Checker",
         DESCRIPTION:
-            "Check any domain's email provider in seconds. Find out who runs the email — Google Workspace, Microsoft 365, Proton, Apple, Yahoo, Fastmail, Zoho, and 160+ others — straight from public MX records.",
+            'Check any email domain in seconds: see who runs its mail (Google Workspace, Microsoft 365, Proton, Zoho and 160+ others), whether it is a free or disposable mailbox, and whether it can receive email at all.',
         CANONICAL: `${SITE_ORIGIN}/`,
-        OG_TITLE: "Email Service Checker — Check Any Domain's Email Provider",
+        OG_TITLE: "Email Domain Checker: Find Any Domain's Email Provider",
         OG_DESCRIPTION: "Type a domain or email address and we'll check which service is running its email.",
         JSON_LD: HOMEPAGE_LD,
         BREADCRUMBS: '',
-        HERO_EYEBROW: 'Email provider checker',
+        HERO_EYEBROW: 'Email domain checker',
         // The H1 used to be "What's actually handling the mail?", which carried
         // the voice but none of the language anyone searches. "email provider
         // lookup" is the term the closest competitor ranks 3rd-4th for while
@@ -1237,7 +1247,7 @@ open free-mailbox (${datasetCounts.free.toLocaleString('en-US')} domains) and di
 
 ## Pages
 
-- [Home — check any domain](${SITE_ORIGIN}/): the checker itself, plus answers to common questions about finding a domain's email provider.
+- [Home — email domain checker](${SITE_ORIGIN}/): the checker itself. Enter a domain or email address to see which provider handles its mail, whether it is a free or disposable mailbox domain, and whether it can receive email, plus answers to common questions about finding a domain's email provider.
 - [MX lookup](${MX_URL}): the same lookup read records-first, listing every mail exchanger with its priority and checking that each can receive mail, plus answers to common questions about MX records.
 
 ## Email security tools
